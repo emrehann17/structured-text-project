@@ -1,0 +1,13 @@
+{
+  "ollama_version": "0.40.2",
+  "model": "qwen2.5:3b",
+  "model_digest": "357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b",
+  "model_parameters": null,
+  "dataset_sha256": "2a5b6818b3251c5552806ef000eaf4be723cf226e6c96f60b27b001408b128bc",
+  "script_sha256": {
+    "evaluate_v2": "71b1ce5481aaf85cf81deae3133db564ae2c7e0cdc163a3030199f591151d14f",
+    "evaluate_schema": "9a544bb2da2b5cafb2829c9a21da56ac575f5610d42a5f8b41cde74444ef910c",
+    "evaluate_v3": "794e7c5d890fd395a8fbdc0dffa4e459612f73980a71def3328796a855e59156"
+  },
+  "reuse_historical_results": false
+}
