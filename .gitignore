@@ -38,3 +38,8 @@ __pycache__/
 
 # Generated submission archives
 *.zip
+
+# Optional historical artifacts
+/legacy/
+/report.pdf
+/structured-text-project-submission.zip

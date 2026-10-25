@@ -2,7 +2,7 @@
 
 Bu belge kanonik kod ve tamamlanmış 200 örneklik ham çıktılara dayanır. Beş geliştirme kaydı ana ölçümün dışındadır; değerlendirmede 200 ID ve 199 farklı metin vardır (2138/2296 aynı metin). Varsayımsal değişikliklerin hiçbiri kaynakta uygulanmadı. Bir parametrenin olası etkisi, ölçülmüş deney sonucu diye sunulmaz.
 
-Dosyalar işlem sırasına göre adlandırılmıştır: 1 veri hazırlama, 2 geliştirme bağlantı denemesi, 3 başlatıcı, 3a/3b/3c A/B/C deneyleri, 4 analiz, 5 şekiller, 6 rapor, 7 doğrulama ve 8 teslim paketi. [Kod çalışma rehberi](CODE_STUDY_GUIDE_TR.md) her adımın dosya adını ve görevini açıklar. Ana komut `python src/step3_run_experiments.py`; tamamlanmış 600 kayıt varken ağ isteği yapmaz. `dev_evaluate_baseline.py` ayrı beş kayıtlık geliştirme deneyidir. Üç değerlendirme kaynağının baytları ve karmaları korunmuştur; giriş açıklamalarındaki eski başlatıcı adı tarihsel kalıntıdır. Manifestteki tarihsel modül adları 7. adımda güncel adlarla eşlenir.
+Dosyalar işlem sırasına göre adlandırılmıştır: 1 veri hazırlama, 2 geliştirme bağlantı denemesi, 3 başlatıcı, 3a/3b/3c A/B/C deneyleri, 4 analiz, 5 şekiller ve 6 doğrulama. [Kod çalışma rehberi](CODE_STUDY_GUIDE_TR.md) her adımın dosya adını ve görevini açıklar. Ana komut `python src/step3_run_experiments.py`; tamamlanmış 600 kayıt varken ağ isteği yapmaz. `dev_evaluate_baseline.py` ayrı beş kayıtlık geliştirme deneyidir. Üç değerlendirme kaynağının baytları ve karmaları korunmuştur; giriş açıklamalarındaki eski başlatıcı adı tarihsel kalıntıdır. Manifestteki tarihsel modül adları 6. adımda güncel adlarla eşlenir.
 
 ## 1. Halüsinasyon: tam olarak neyi ölçtük?
 

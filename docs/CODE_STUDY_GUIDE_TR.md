@@ -16,16 +16,14 @@ Dosya numaraları çalışmanın sırasını gösterir. Sunumda her adımın gir
 | 3c | `step3c_evaluate_optimized.py` | C: kısa istem ve tekrar ayarları, B ile aynı şema. |
 | 4 | `step4_analyze_results.py` | Kaydedilmiş ham yanıtlardan metrikleri ve karışıklık matrislerini hesaplar. |
 | 5 | `step5_generate_figures.py` | Analizi yeniler; altı şekli PNG ve SVG olarak üretir. |
-| 6 | `step6_build_report.py` | Analiz/şekilleri yeniler ve akademik PDF'yi oluşturur. |
-| 7 | `step7_verify_project.py` | Veri, yanıt, metrik, kaynak karması, matris, şekil ve PDF kontrollerini ağsız yapar. |
-| 8 | `step8_package_submission.py` | Doğrulama yapar; güncel dosyaları teslim ZIP'ine koyup arşiv baytlarını karşılaştırır. |
+| 6 | `step6_verify_project.py` | Veri, yanıt, metrik, kaynak karması, matris ve altı PNG/SVG şekil çiftini ağsız doğrular. |
 | Geliştirme | `dev_evaluate_baseline.py` | Beş geliştirme kaydının ayrı başlangıç deneyidir. |
 
-Tamamlanmış projeyi sunarken 3 ve 7 yeterlidir; 2 ve geliştirme baseline adımı yeniden çıkarım yapacağı için bu doğrulama akışında kullanılmaz. 4–6 kayıtlı sonuçlardan yeniden üretim içindir; 8 teslim paketini hazırlar. Ana komut: `python src/step3_run_experiments.py`.
+Tamamlanmış projeyi sunarken 3 ve 6 yeterlidir; 2 ve geliştirme baseline adımı model isteği yapabildiği için bu doğrulama akışında kullanılmaz. 4 ve 5 kayıtlı sonuçlardan analiz ve şekil üretimi içindir; sunumda mevcut şekilleri açmak yeterlidir. Ana komut: `python src/step3_run_experiments.py`.
 
-Üç değerlendirme betiğinin kaynak baytları ve SHA-256 değerleri korundu. Bu nedenle giriş açıklamalarındaki eski `src/run_evaluation.py` adı tarihsel olarak durur; güncel komut yukarıdadır. Önceki göç envanteri ve manifest değiştirilmedi; 7. adım güncel modül adını tarihsel kimliğe eşler. Mevcut PDF'nin eski komut adları da korunmuştur; güncel adlar bu tablodadır.
+Üç değerlendirme betiğinin kaynak baytları ve SHA-256 değerleri korundu. Bu nedenle giriş açıklamalarındaki eski başlatıcı adı tarihsel olarak durur; güncel komut yukarıdadır. Önceki göç envanteri ve manifest değiştirilmedi; 6. adım güncel modül adını tarihsel kimliğe eşler.
 
-Haber → istem → Ollama HTTP POST → response metni → ham JSON → gerekirse temizleme → şema → kategori eşitliği → JSONL checkpoint → metrikler → şekiller/PDF.
+Haber → istem → Ollama HTTP POST → response metni → ham JSON → gerekirse temizleme → şema → kategori eşitliği → JSONL checkpoint → metrikler → şekiller → doğrulama.
 
 Model eğitilmez; hazır qwen2.5:3b ağırlıklarıyla çıkarım yapılır. `true_category` referans etikettir. Varlıklar için insan etiketli altın referans bulunmadığından anlamsal NER başarısı ölçülmez. Dış `response.json()` sunucu zarfını, iç `json.loads(raw)` model metnini açar. JSONL'de her satır ayrı bir kayıttır.
 
@@ -145,7 +143,7 @@ Dış except, `requests.RequestException`, `ValueError`, `KeyError` yakalar. Hat
 
 `percentage` pay/payda yüzdesini iki ondalığa yuvarlar; b=0 ise kaydedilmiş yardımcı 0 döndürür. `main`, argümanı okur, ilk beşi atlar, kaydedilmiş checkpoint dosyasını yükler, tamamlanan ID'leri atlar, her yeni sonucu dosyaya append eder. Hata kaydı olan ID de tamamlanmış kabul edilir; otomatik yeniden deneme yoktur. Dosyayı her haber sonrası kapatmak kesintide kaybı azaltır, ancak güç kesintisine karşı işlem günlüğü/atomik kayıt garantisi değildir.
 
-Konsolun `Category accuracy` paydası yanıt alınan sayıdır. Kanonik rapordaki uçtan uca doğruluğun paydası tüm 200 istektir; bu koşuda herkes yanıt aldığı için sayısal fark yoktur. API hataları oluşursa bu ayrım önemlidir. Yeni nihai analiz, tüm 200 kayıt üzerinden oranları ve ayrıca koşullu doğruluğu açıkça ayırır.
+Konsolun `Category accuracy` paydası yanıt alınan sayıdır. Kanonik analizdeki uçtan uca doğruluğun paydası tüm 200 istektir; bu koşuda herkes yanıt aldığı için sayısal fark yoktur. API hataları oluşursa bu ayrım önemlidir. Yeni nihai analiz, tüm 200 kayıt üzerinden oranları ve ayrıca koşullu doğruluğu açıkça ayırır.
 
 
 ## Başlatıcı: src/step3_run_experiments.py
@@ -158,9 +156,13 @@ Konsolun `Category accuracy` paydası yanıt alınan sayıdır. Kanonik rapordak
 
 `collect_summary` veri hash'i, geliştirme ID'leri, değerlendirme ID sırası, metin tekrarları ve tüm deneyleri dosya yazmadan kontrol eder. `main` kanonik `results/metrics_summary.json`, A/B matrisleri ve `results/v3_confusion_matrix.csv` dosyalarını yazar. INVALID sütunu API/biçim/şema hatalarını tutar; her matris toplamı 200'dür. C varlık listeleri için tekrar ve beş elemanı aşma sayılır; bunlar anlamsal doğruluk değildir.
 
-## Şekiller ve akademik rapor
+## Şekiller: src/step5_generate_figures.py
 
-`src/step5_generate_figures.py` aynı doğrulanmış metriklerden altı şekli PNG/SVG üretir: JSON/şema, sınıflandırma, süre, C matrisi, C kategori doğruluğu, B hata dağılımı. Grafik etiketleri gerçek sayımlardan gelir. `src/step6_build_report.py` metrikleri ve şekilleri yeniler, gömülü DejaVu yazı tipiyle `report.pdf` oluşturur. Beş geliştirme ile 200 değerlendirme raporda ayrı belirtilir.
+`src/step5_generate_figures.py` aynı doğrulanmış metriklerden altı şekli PNG/SVG üretir: JSON/şema, sınıflandırma, süre, C matrisi, C kategori doğruluğu, B hata dağılımı. Grafik etiketleri gerçek sayımlardan gelir. Betik önce analizi yeniler; model çağrısı yapmaz. Sunumda korunmuş PNG/SVG dosyalarını kullanın; yeniden üretim gerekli değildir.
+
+## Doğrulama: src/step6_verify_project.py
+
+Veri üyeliğini, veri ve kaynak karmalarını, üç deneyin aynı sıralı 200 kimliğini ve 600 yanıtı kontrol eder. Ham JSON/temizleme/şema/kategori bayraklarını yeniden hesaplayıp kaydedilmiş metriklerle karşılaştırır. Üç matris ve altı PNG/SVG şekil çifti denetlenir. Sonuç `docs/verification.json` içine yazılır; veri, deney sonuçları ve şekiller değiştirilmez. Checkpoint ve tamamlanmış başlatıcının ağsız davranışı ayrıca birim testlerinde sınanır.
 
 ## Gerçek haber yürüyüşü: ID 4000
 
@@ -195,8 +197,7 @@ Anadolu Efes bir kurum olmasına rağmen person listesinde bulunur. Bu semantik 
 
 ```bash
 venv/bin/python src/step3_run_experiments.py
-venv/bin/python src/step6_build_report.py
-venv/bin/python src/step7_verify_project.py
+venv/bin/python src/step6_verify_project.py
 venv/bin/python -m unittest discover -s tests -v
 ```
 

@@ -64,9 +64,7 @@
     "src/step3c_evaluate_optimized.py",
     "src/step4_analyze_results.py",
     "src/step5_generate_figures.py",
-    "src/step6_build_report.py",
-    "src/step7_verify_project.py",
-    "src/step8_package_submission.py",
+    "src/step6_verify_project.py",
     "tests/test_evaluation.py"
   ],
   "metrics_equal_raw_recomputation": true,
@@ -92,6 +90,5 @@
   "inference_source_hashes_verified": true,
   "active_version_suffixes_absent": true,
   "development_baseline_separate": true,
-  "pdf_header_valid": true,
   "backup_directory": "/tmp/structured-text-project-backup-20261025T130833Z"
 }

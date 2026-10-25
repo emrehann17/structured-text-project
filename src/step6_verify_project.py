@@ -69,20 +69,19 @@ def main():
             else:
                 assert '<svg' in path.read_text()
             figures.append(str(path.relative_to(ROOT)))
-    assert (ROOT/'report.pdf').read_bytes().startswith(b'%PDF-')
-    active = [p for p in ROOT.rglob('*') if p.is_file() and not any(part in {'venv','.git','.codex','.agents','.aws','__pycache__'} for part in p.relative_to(ROOT).parts)]
+    active = [p for p in ROOT.rglob('*') if p.is_file() and not any(part in {'venv','.git','.codex','.agents','.aws','__pycache__','legacy'} for part in p.relative_to(ROOT).parts)]
     assert not [str(p.relative_to(ROOT)) for p in active if '_200' in p.name or '_205' in p.name or '-200-' in p.name]
     # Historical filenames may occur only in the migration change inventory as archive provenance.
     import re
     for p in active:
-        if p.suffix not in {'.py','.md'} or p.name in {'MIGRATION_CHANGES.md','step7_verify_project.py'}:
+        if p.suffix not in {'.py','.md'} or p.name in {'MIGRATION_CHANGES.md','step6_verify_project.py'}:
             continue
         assert not re.search(r'\b[\w/.-]+_(?:200|205)(?:\.[\w]+|/|\b)',p.read_text()), str(p)
     report = {'status':'passed','dataset':summary['dataset'],'experiments':experiments,
               'syntax_checked':syntax,'metrics_equal_raw_recomputation':True,
               'matrices_verified':matrices_verified,'figures_verified':figures,
               'inference_source_hashes_verified':True,'active_version_suffixes_absent':True,
-              'development_baseline_separate':True,'pdf_header_valid':True,
+              'development_baseline_separate':True,
               'backup_directory':manifest['backup_directory']}
     (ROOT/'docs/verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2)+'\n')
     print(json.dumps({'status':'passed','dataset':205,'development':5,'evaluation':200,'unique_evaluation_texts':199,'experiments':experiments},ensure_ascii=False))
