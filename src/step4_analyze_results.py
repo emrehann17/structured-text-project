@@ -1,6 +1,6 @@
 """200 örneklik çalışmayı ham yanıtlardan ölçer; eksik çalışmaya sonuç uydurmaz.
 
-Kullanım: python src/analyze_final.py
+Kullanım: python src/step4_analyze_results.py
 Her deneyin 200 kimliği tam değilse yalnız durum/ilerleme yazılır; nihai oranlar
 null kalır ve o deneyin karışıklık matrisi üretilmez. Kanonik sonuçlar okunur.
 """
@@ -14,9 +14,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "results"
 METHODS = {
-    "A": ("evaluate_v2", "improved_prompt_results.jsonl"),
-    "B": ("evaluate_schema", "schema_results.jsonl"),
-    "C": ("evaluate_v3", "optimized_schema_results.jsonl"),
+    "A": ("step3a_evaluate_prompt", "improved_prompt_results.jsonl"),
+    "B": ("step3b_evaluate_json", "schema_results.jsonl"),
+    "C": ("step3c_evaluate_optimized", "optimized_schema_results.jsonl"),
 }
 
 

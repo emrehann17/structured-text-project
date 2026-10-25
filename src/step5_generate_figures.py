@@ -4,7 +4,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import numpy as np
-from analyze_final import OUT, collect_summary, main as analyze
+from step4_analyze_results import OUT, collect_summary, main as analyze
 
 FIGURES = OUT / 'figures'
 NAMES = ['A: Prompt only', 'B: JSON Schema', 'C: Optimized schema']

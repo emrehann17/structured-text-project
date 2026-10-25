@@ -1,7 +1,7 @@
 """Yalnız güncel proje dosyalarıyla doğrulanmış teslim ZIP'i oluşturur."""
 from pathlib import Path
 import zipfile
-from verify_project import ROOT, main as verify
+from step7_verify_project import ROOT, main as verify
 
 
 def main():

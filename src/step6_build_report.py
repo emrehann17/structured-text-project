@@ -9,8 +9,8 @@ from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image, PageBreak
-from analyze_final import ROOT, OUT, collect_summary
-from generate_report_assets import main as generate_assets
+from step4_analyze_results import ROOT, OUT, collect_summary
+from step5_generate_figures import main as generate_assets
 
 
 def register_fonts():
@@ -110,7 +110,7 @@ def main():
     para('9. Conclusion', True)
     para(f'On these 200 evaluation records, C yields {c["raw_json_success_pct"]:.2f}% raw JSON and schema validity, {c["end_to_end_accuracy_pct"]:.2f}% end-to-end classification accuracy and {c["total_inference_seconds"]:.2f} seconds total client runtime. This supports the practical value of the combined configuration for reliable output structure while exposing remaining classification and entity-quality limitations.')
     para('10. Artifacts and references', True)
-    para('Primary evidence: data/test_samples.jsonl; results/improved_prompt_results.jsonl; results/schema_results.jsonl; results/optimized_schema_results.jsonl; results/metrics_summary.json. Reproduction: python src/build_report_pdf.py. Validation: python src/verify_project.py and python -m unittest discover -s tests -v. The README and Turkish study, technical Q&A and presentation guides describe the same completed run.')
+    para('Primary evidence: data/test_samples.jsonl; results/improved_prompt_results.jsonl; results/schema_results.jsonl; results/optimized_schema_results.jsonl; results/metrics_summary.json. Reproduction: python src/step6_build_report.py. Validation: python src/step7_verify_project.py and python -m unittest discover -s tests -v. The README and Turkish study, technical Q&A and presentation guides describe the same completed run.')
     para('Dataset provenance: savasy/ttc4900 (Hugging Face), recorded in data/test_samples_manifest.json. Software: Python json/requests, Ollama qwen2.5:3b, Matplotlib and ReportLab; dependencies in requirements.txt. Dataset and model identifiers describe the saved experiment, not a newly downloaded revision.')
     output = ROOT / 'report.pdf'
     SimpleDocTemplate(str(output), pagesize=A4, leftMargin=20*mm, rightMargin=20*mm, topMargin=18*mm, bottomMargin=23*mm,

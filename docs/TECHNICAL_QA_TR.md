@@ -2,6 +2,8 @@
 
 Bu belge kanonik kod ve tamamlanmış 200 örneklik ham çıktılara dayanır. Beş geliştirme kaydı ana ölçümün dışındadır; değerlendirmede 200 ID ve 199 farklı metin vardır (2138/2296 aynı metin). Varsayımsal değişikliklerin hiçbiri kaynakta uygulanmadı. Bir parametrenin olası etkisi, ölçülmüş deney sonucu diye sunulmaz.
 
+Dosyalar işlem sırasına göre adlandırılmıştır: 1 veri hazırlama, 2 geliştirme bağlantı denemesi, 3 başlatıcı, 3a/3b/3c A/B/C deneyleri, 4 analiz, 5 şekiller, 6 rapor, 7 doğrulama ve 8 teslim paketi. [Kod çalışma rehberi](CODE_STUDY_GUIDE_TR.md) her adımın dosya adını ve görevini açıklar. Ana komut `python src/step3_run_experiments.py`; tamamlanmış 600 kayıt varken ağ isteği yapmaz. `dev_evaluate_baseline.py` ayrı beş kayıtlık geliştirme deneyidir. Üç değerlendirme kaynağının baytları ve karmaları korunmuştur; giriş açıklamalarındaki eski başlatıcı adı tarihsel kalıntıdır. Manifestteki tarihsel modül adları 7. adımda güncel adlarla eşlenir.
+
 ## 1. Halüsinasyon: tam olarak neyi ölçtük?
 
 Bu görevde halüsinasyon, modelin verilen haberle desteklenmeyen bir isim veya bilgi üretmesidir. Akıcı veya biçimsel olarak kusursuz yazılmış olması bu bilgiyi doğru yapmaz. Ancak her hata halüsinasyon değildir. Haber sınıfını yanlış seçmek, varlığı yanlış türe koymak ve JSON'u yarım bırakmak farklı sorunlardır. Bir çıktıda birden fazla hata aynı anda bulunabilir.
@@ -120,7 +122,7 @@ Ders örneği aynı dağılımda A=.50, B=.25, C=.15, D=.10 olsun. p=.70 için i
 | top_k | Açıkça ayarlanmadı | Açıkça ayarlanmadı | Açıkça ayarlanmadı |
 | top_p | Açıkça ayarlanmadı | Açıkça ayarlanmadı | Açıkça ayarlanmadı |
 
-**top_k ve top_p kodda yapılandırılmamıştır. Ollama çalışma zamanı/model varsayılanları kullanılır; kontrollü top-k/top-p karşılaştırması yapmadık.** Bu değerler sonuç kayıtlarında da yoktur. “Varsayılanları kullandık” demek bu mekanizmalar hiç yok demek değildir. Yeni başlatıcı `/api/show` bilgilerini kaydeder ama model seçeneklerini değiştirmez. `test_model.py` kısa denemesi bu tablonun dışında, yalnız temperature ve num_ctx ayarlar.
+**top_k ve top_p kodda yapılandırılmamıştır. Ollama çalışma zamanı/model varsayılanları kullanılır; kontrollü top-k/top-p karşılaştırması yapmadık.** Bu değerler sonuç kayıtlarında da yoktur. “Varsayılanları kullandık” demek bu mekanizmalar hiç yok demek değildir. Yeni başlatıcı `/api/show` bilgilerini kaydeder ama model seçeneklerini değiştirmez. `step2_test_model.py` kısa denemesi bu tablonun dışında, yalnız temperature ve num_ctx ayarlar.
 
 ## 3. Kod değişirse ne olur? 26 savunma sorusu
 
@@ -128,7 +130,7 @@ Her kod parçası mevcut kanonik kaynaktan alınmıştır. “Kuramsal” ifades
 
 ### 1. temperature=0 yerine 0.8 olursa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 "temperature": 0,
@@ -142,7 +144,7 @@ Kaynak: `src/evaluate_v2.py`
 
 ### 2. num_predict=384 yerine 128 olursa?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "num_predict": 384,
@@ -156,7 +158,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 3. JSON Schema format seçeneği kaldırılırsa?
 
-Kaynak: `src/evaluate_schema.py`
+Kaynak: `src/step3b_evaluate_json.py`
 
 ```python
 "format": JSON_SCHEMA,
@@ -170,7 +172,7 @@ Kaynak: `src/evaluate_schema.py`
 
 ### 4. try-except kaldırılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 except (requests.RequestException, ValueError, KeyError) as e:
@@ -184,7 +186,7 @@ except (requests.RequestException, ValueError, KeyError) as e:
 
 ### 5. json.loads(raw) başarısız olursa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 parsed = json.loads(raw)
@@ -198,7 +200,7 @@ parsed = json.loads(raw)
 
 ### 6. stream=False yerine True olursa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 "stream": False,
@@ -212,7 +214,7 @@ Kaynak: `src/evaluate_v2.py`
 
 ### 7. seed=42 kaldırılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 "seed": 42,
@@ -222,11 +224,11 @@ Kaynak: `src/evaluate_v2.py`
 
 **Varsayımsal değişiklik / beklenen etki:** Runtime varsayılanına geçilir. Tekrarlanabilirlik güvencesi azalabilir; temperature=0 altında görünür fark oluşmayabilir. Kaynak/Donanım farkını seed zaten ortadan kaldırmaz.
 
-**Kanıt durumu:** Kuramsal. Ayrıca prepare_dataset içindeki SEED bağımsızdır; bu satırı silmek veri sırasını değiştirmez.
+**Kanıt durumu:** Kuramsal. Ayrıca step1_prepare_dataset içindeki SEED bağımsızdır; bu satırı silmek veri sırasını değiştirmez.
 
 ### 8. Kategori enum kaldırılırsa?
 
-Kaynak: `src/evaluate_schema.py`
+Kaynak: `src/step3b_evaluate_json.py`
 
 ```python
 "enum": sorted(CATEGORIES)
@@ -240,7 +242,7 @@ Kaynak: `src/evaluate_schema.py`
 
 ### 9. additionalProperties=False kaldırılırsa?
 
-Kaynak: `src/evaluate_schema.py`
+Kaynak: `src/step3b_evaluate_json.py`
 
 ```python
 "additionalProperties": False
@@ -254,7 +256,7 @@ Kaynak: `src/evaluate_schema.py`
 
 ### 10. JSON temizleme devre dışı bırakılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 success, parsed = clean_and_parse(raw)
@@ -268,7 +270,7 @@ success, parsed = clean_and_parse(raw)
 
 ### 11. Timeout azaltılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 timeout=(5, 60)
@@ -282,7 +284,7 @@ timeout=(5, 60)
 
 ### 12. Aynı entity tekrar edilirse?
 
-Kaynak: `src/analyze_final.py`
+Kaynak: `src/step4_analyze_results.py`
 
 ```python
 if len(normalized) != len(set(normalized)):
@@ -296,7 +298,7 @@ if len(normalized) != len(set(normalized)):
 
 ### 13. Sonuç dosyası IDyi zaten içeriyorsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 if sample["id"] in results:
@@ -310,7 +312,7 @@ if sample["id"] in results:
 
 ### 14. Veri kümesinde duplicate kayıt varsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 results[item["id"]] = item
@@ -324,7 +326,7 @@ results[item["id"]] = item
 
 ### 15. Geçerli JSONda kategori yanlışsa?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 parsed["category"] == sample["true_category"]
@@ -338,7 +340,7 @@ parsed["category"] == sample["true_category"]
 
 ### 16. Yanıtta iki JSON nesnesi varsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 obj, _ = decoder.raw_decode(cleaned[i:])
@@ -352,7 +354,7 @@ obj, _ = decoder.raw_decode(cleaned[i:])
 
 ### 17. repeat_penalty artırılırsa?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "repeat_penalty": 1.2,
@@ -366,7 +368,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 18. top_p değiştirilirse?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "temperature": 0,
@@ -380,7 +382,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 19. top_k değiştirilirse?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "num_predict": 384,
@@ -394,7 +396,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 20. Değerlendirme yarıda kesilirse?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 with open(RESULT_PATH, "a", encoding="utf-8") as f:
@@ -408,7 +410,7 @@ with open(RESULT_PATH, "a", encoding="utf-8") as f:
 
 ### 21. num_ctx azaltılırsa?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "num_ctx": 4096,
@@ -422,7 +424,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 22. Şema kontrolü kaldırılıp sadece kategoriye bakılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 if result["schema_valid"]:
@@ -436,7 +438,7 @@ if result["schema_valid"]:
 
 ### 23. samples[5:5+limit] yerine ilk 200 alınırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 selected = samples[5:5 + args.limit]
@@ -450,7 +452,7 @@ selected = samples[5:5 + args.limit]
 
 ### 24. raw_json_valid temizleme sonrasında True yapılırsa?
 
-Kaynak: `src/evaluate_v2.py`
+Kaynak: `src/step3a_evaluate_prompt.py`
 
 ```python
 result["raw_json_valid"] = True
@@ -464,7 +466,7 @@ result["raw_json_valid"] = True
 
 ### 25. repeat_last_n=128 değişirse?
 
-Kaynak: `src/evaluate_v3.py`
+Kaynak: `src/step3c_evaluate_optimized.py`
 
 ```python
 "repeat_last_n": 128
@@ -478,7 +480,7 @@ Kaynak: `src/evaluate_v3.py`
 
 ### 26. required kaldırılırsa?
 
-Kaynak: `src/evaluate_schema.py`
+Kaynak: `src/step3b_evaluate_json.py`
 
 ```python
 "required": ["category", "entities"],

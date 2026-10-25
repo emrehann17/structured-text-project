@@ -4,10 +4,17 @@ import csv
 import hashlib
 import json
 from pathlib import Path
-from analyze_final import ROOT, OUT, METHODS, collect_summary, load_jsonl
+from step4_analyze_results import ROOT, OUT, METHODS, collect_summary, load_jsonl
 
 FIGURES = ('json_success_comparison', 'classification_accuracy', 'inference_performance',
            'confusion_matrix', 'category_accuracy', 'schema_failure_analysis')
+
+# The migration manifest records names at migration time; preserve that history.
+HISTORICAL_MODULE_NAMES = {
+    'step3a_evaluate_prompt': 'evaluate_v2',
+    'step3b_evaluate_json': 'evaluate_schema',
+    'step3c_evaluate_optimized': 'evaluate_v3',
+}
 
 
 def digest(path):
@@ -35,7 +42,7 @@ def main():
         assert all(r['response_received'] and r['api_error'] is None for r in rows)
         assert digest(OUT/filename) == manifest['promoted_results_sha256'][filename]
         assert digest(ROOT/'src'/f'{name}.py') == identity['script_sha256'][name]
-        evidence = manifest['inference_preservation'][name]
+        evidence = manifest['inference_preservation'][HISTORICAL_MODULE_NAMES[name]]
         assert identity['script_sha256'][name] == evidence['canonical_source_sha256']
         assert evidence['ast_equal_after_path_and_module_docstring_normalization']
         matrix = matrices[key]
@@ -68,7 +75,7 @@ def main():
     # Historical filenames may occur only in the migration change inventory as archive provenance.
     import re
     for p in active:
-        if p.suffix not in {'.py','.md'} or p.name in {'MIGRATION_CHANGES.md','verify_project.py'}:
+        if p.suffix not in {'.py','.md'} or p.name in {'MIGRATION_CHANGES.md','step7_verify_project.py'}:
             continue
         assert not re.search(r'\b[\w/.-]+_(?:200|205)(?:\.[\w]+|/|\b)',p.read_text()), str(p)
     report = {'status':'passed','dataset':summary['dataset'],'experiments':experiments,

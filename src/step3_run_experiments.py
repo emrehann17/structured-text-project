@@ -1,6 +1,6 @@
 """Aynı 200 haberle üç ayrı deneyi başlatır; özgün çıkarım mantığını çağırır.
 
-Kullanım: python src/run_evaluation.py
+Kullanım: python src/step3_run_experiments.py
 Önce Ollama erişimi ve model varlığı kontrol edilir. Böylece sunucuya hiç
 erişilemeyen ortamda 600 yapay hata kaydı ile checkpoint dosyaları dolmaz.
 """
@@ -13,7 +13,7 @@ import sys
 
 import requests
 
-from analyze_final import METHODS, OUT, ROOT, load_jsonl, collect_summary, main as analyze
+from step4_analyze_results import METHODS, OUT, ROOT, load_jsonl, collect_summary, main as analyze
 
 
 def main():

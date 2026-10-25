@@ -30,12 +30,24 @@ Bütün etkin Python kaynakları ve testleri sözdizimi kontrolünden geçti. Ka
 
 ## Tekrar çalıştırma
 
+İşlem sırasına göre yeniden adlandırmada yalnız dosya adları ve bunlara bağlı referanslar güncellendi. Üç değerlendirme betiği bayt düzeyinde aynı kaldı; `results/run_identity.json` içinde yalnız modül anahtarları değişti, SHA-256 değerleri korundu. Tarihsel `migration_manifest.json` ve `MIGRATION_CHANGES.md` değiştirilmedi. `step7_verify_project.py` güncel adları tarihsel kimliğe eşleyerek aynı kanıtları doğrular.
+
+Veri, tüm model çıktıları, metrikler, matrisler, 12 şekil dosyası ve `report.pdf` yeniden adlandırma öncesiyle aynı baytlardır. PDF'nin eski komut adları ve üç değerlendirme kaynağının eski başlatıcı açıklaması korunmuştur; güncel komutlar aşağıdadır. Tamamlanmış koşuyu doğrulamak için 3 ve 7 yeterlidir; 6 yalnız raporu yeniden üretmek istenirse kullanılır. Bütün adımlar [kod çalışma rehberinde](CODE_STUDY_GUIDE_TR.md) açıklanır.
+
+Yeniden adlandırma sonrası kontroller:
+
+- 12 kaynak ve bir test dosyası sözdizimi kontrolünden geçti; 88 import ifadesi çözümlendi. Etkin Python yolları ve 31 yerel Markdown bağlantısı doğrulandı.
+- Mevcut beş birim testi geçti. Tam checkpoint'te sıfır çıkarım; 199 kayıtlı geçici checkpoint'te yalnız eksik kayıt için bir taklit çağrı doğrulandı. Tam başlatıcıda ağ ve alt süreç çağrıları sıfırdı.
+- Eksik koşu başlatıcısı geçici dizinde, taklit Ollama bilgileri ve taklit alt süreçlerle sınandı: `step3a_evaluate_prompt.py` → `step3b_evaluate_json.py` → `step3c_evaluate_optimized.py`, her biri `--limit 200`. Değiştirilmiş çalışma kimliği deney başlamadan reddedildi. Gerçek çıkarım yapılmadı.
+- Ham yanıtlardan yeniden hesaplama kayıtlı metriklerle tamamen aynıydı: A/B/C ham JSON %0/%79/%100; sınıflandırma %40/%43,5/%53,5. Veri 205, değerlendirme 200, her deney 200 yanıt olarak kaldı.
+- 29 korunan veri/sonuç/rapor/tarihçe dosyasının SHA-256 değeri yeniden adlandırma öncesiyle aynıydı. Üç değerlendirme betiği ve geliştirme bağlantı betiği de bayt düzeyinde aynı kaldı. Çalışma kimliğinde yalnız üç modül anahtarı değişti.
+
 ```bash
-venv/bin/python src/run_evaluation.py
-venv/bin/python src/build_report_pdf.py
-venv/bin/python src/verify_project.py
+venv/bin/python src/step3_run_experiments.py
+venv/bin/python src/step6_build_report.py
+venv/bin/python src/step7_verify_project.py
 venv/bin/python -m unittest discover -s tests -v
-venv/bin/python src/package_submission.py
+venv/bin/python src/step8_package_submission.py
 ```
 
 Makine kayıtları: [verification.json](verification.json), [pdf_validation.json](pdf_validation.json), [migration_manifest.json](migration_manifest.json). Tüm değişen/eklenen/kaldırılan dosyalar: [MIGRATION_CHANGES.md](MIGRATION_CHANGES.md). Teslim ZIP'i yalnız güncel dosyaları içerir; içindeki dosya baytları etkin proje ile karşılaştırılır, CRC bütünlüğü denetlenir; eski arşivler ve sanal ortam dahil değildir.

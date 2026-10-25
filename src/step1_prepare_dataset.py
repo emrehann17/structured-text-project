@@ -1,6 +1,6 @@
 """İlk 140 kaydı koruyarak 65 yeni TTC4900 haberi ekler; model çalıştırmaz.
 
-Kullanım: python src/prepare_dataset.py [--source-arrow önbellek.arrow]
+Kullanım: python src/step1_prepare_dataset.py [--source-arrow önbellek.arrow]
 Eski filtre 150–3000 karakterdir. Sabit tohum 42, hedef değerlendirme
 dağılımı alfabetik ilk dört sınıfta 29, son üç sınıfta 28 haberdir.
 """

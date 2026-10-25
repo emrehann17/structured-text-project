@@ -4,11 +4,32 @@
 
 ## Akış
 
+Dosya numaraları çalışmanın sırasını gösterir. Sunumda her adımın girdisini, yaptığı işi ve çıktısını şu sırayla anlatın:
+
+| Adım | `src/` içindeki dosya | Sunumda açıklanacak görev |
+|---|---|---|
+| 1 | `step1_prepare_dataset.py` | Kaynaktan sabit 205 kaydı hazırlar ve manifest karmasını doğrular; ilk beş geliştirme, sonraki 200 değerlendirmedir. |
+| 2 | `step2_test_model.py` | Bir geliştirme haberiyle bağlantıyı dener; gerçek Ollama çağrısı yapar ve ana deneylere dahil değildir. |
+| 3 | `step3_run_experiments.py` | Checkpoint kontrolünden sonra A → B → C sırasını yönetir; 600 kayıt tam ise yalnız doğrular ve çıkarım yapmadan çıkar. |
+| 3a | `step3a_evaluate_prompt.py` | A: uzun istem, üretim sırasında şema zorlaması yok. |
+| 3b | `step3b_evaluate_json.py` | B: A ile aynı istem, üretim sırasında JSON Schema. |
+| 3c | `step3c_evaluate_optimized.py` | C: kısa istem ve tekrar ayarları, B ile aynı şema. |
+| 4 | `step4_analyze_results.py` | Kaydedilmiş ham yanıtlardan metrikleri ve karışıklık matrislerini hesaplar. |
+| 5 | `step5_generate_figures.py` | Analizi yeniler; altı şekli PNG ve SVG olarak üretir. |
+| 6 | `step6_build_report.py` | Analiz/şekilleri yeniler ve akademik PDF'yi oluşturur. |
+| 7 | `step7_verify_project.py` | Veri, yanıt, metrik, kaynak karması, matris, şekil ve PDF kontrollerini ağsız yapar. |
+| 8 | `step8_package_submission.py` | Doğrulama yapar; güncel dosyaları teslim ZIP'ine koyup arşiv baytlarını karşılaştırır. |
+| Geliştirme | `dev_evaluate_baseline.py` | Beş geliştirme kaydının ayrı başlangıç deneyidir. |
+
+Tamamlanmış projeyi sunarken 3 ve 7 yeterlidir; 2 ve geliştirme baseline adımı yeniden çıkarım yapacağı için bu doğrulama akışında kullanılmaz. 4–6 kayıtlı sonuçlardan yeniden üretim içindir; 8 teslim paketini hazırlar. Ana komut: `python src/step3_run_experiments.py`.
+
+Üç değerlendirme betiğinin kaynak baytları ve SHA-256 değerleri korundu. Bu nedenle giriş açıklamalarındaki eski `src/run_evaluation.py` adı tarihsel olarak durur; güncel komut yukarıdadır. Önceki göç envanteri ve manifest değiştirilmedi; 7. adım güncel modül adını tarihsel kimliğe eşler. Mevcut PDF'nin eski komut adları da korunmuştur; güncel adlar bu tablodadır.
+
 Haber → istem → Ollama HTTP POST → response metni → ham JSON → gerekirse temizleme → şema → kategori eşitliği → JSONL checkpoint → metrikler → şekiller/PDF.
 
 Model eğitilmez; hazır qwen2.5:3b ağırlıklarıyla çıkarım yapılır. `true_category` referans etikettir. Varlıklar için insan etiketli altın referans bulunmadığından anlamsal NER başarısı ölçülmez. Dış `response.json()` sunucu zarfını, iç `json.loads(raw)` model metnini açar. JSONL'de her satır ayrı bir kayıttır.
 
-## Veri hazırlama: src/prepare_dataset.py
+## Veri hazırlama: src/step1_prepare_dataset.py
 
 Kaynak TTC4900 `train` bölümüdür. `--source-arrow` yerel önbelleği okuyabilir. Seed 42 ile kaynak indeksleri karıştırılır, 150–3000 karakter filtresi ve ilk seçimde sınıf başına 20 kota uygulanır. İlk seçimin sırası yeniden üretilir; ilk beş geliştirme kaydı korunur. Ardından mevcut 200 değerlendirme dağılımını sağlayan ekler aynı algoritmayla seçilir. Eklerde tekrarlı ID/metin atlanır; önceden bulunan 2138/2296 metin tekrarı korunur. Bu geçmiş seçim adımları yeniden üretim içindir; etkin veri her zaman 205 kayıttır.
 
@@ -16,11 +37,11 @@ Kanonik manifestteki SHA-256, üyelik ve sırayı sabitler. Hazırlama betiği a
 
 ## Geliştirme araçları
 
-`src/test_model.py` ilk geliştirme haberini tek istekle sınar ve terminale yazar. `src/evaluate.py` varsayılan beş geliştirme örneğini `results/baseline_results.jsonl` içine kaydeder. Bunlar ana A/B/C sonuçlarına katılmaz. `test_model.py` ana kontrollü parametre setinin tamamını kullanmaz; eşdeğer deney sayılmaz.
+`src/step2_test_model.py` ilk geliştirme haberini tek istekle sınar ve terminale yazar. `src/dev_evaluate_baseline.py` varsayılan beş geliştirme örneğini `results/baseline_results.jsonl` içine kaydeder. Bunlar ana A/B/C sonuçlarına katılmaz. `step2_test_model.py` ana kontrollü parametre setinin tamamını kullanmaz; eşdeğer deney sayılmaz.
 
 ## Ana deneyler ve ortak fonksiyonlar
 
-`src/evaluate_v2.py`: A, geliştirilmiş uzun istem. `src/evaluate_schema.py`: B, aynı istem ve JSON Schema. `src/evaluate_v3.py`: C, kısa istem, aynı şema, repeat_penalty=1.2 ve repeat_last_n=128. Hepsinde temperature=0, seed=42, num_ctx=4096, num_predict=384; stream=False ve timeout=(5,60). top_k/top_p açıkça ayarlı değildir.
+`src/step3a_evaluate_prompt.py`: A, geliştirilmiş uzun istem. `src/step3b_evaluate_json.py`: B, aynı istem ve JSON Schema. `src/step3c_evaluate_optimized.py`: C, kısa istem, aynı şema, repeat_penalty=1.2 ve repeat_last_n=128. Hepsinde temperature=0, seed=42, num_ctx=4096, num_predict=384; stream=False ve timeout=(5,60). top_k/top_p açıkça ayarlı değildir.
 
 Varsayılan `--limit 200`, `samples[5:5 + args.limit]` üzerinden tam değerlendirmeyi seçer. Kanonik yollar sırasıyla `results/improved_prompt_results.jsonl`, `results/schema_results.jsonl`, `results/optimized_schema_results.jsonl` olur. Her ID yazıldıktan sonra tekrar başlatmada atlanır; hata kaydı da atlanır. İstem, şema, seçenekler ve hata işleme taşınırken değiştirilmedi.
 
@@ -127,11 +148,11 @@ Dış except, `requests.RequestException`, `ValueError`, `KeyError` yakalar. Hat
 Konsolun `Category accuracy` paydası yanıt alınan sayıdır. Kanonik rapordaki uçtan uca doğruluğun paydası tüm 200 istektir; bu koşuda herkes yanıt aldığı için sayısal fark yoktur. API hataları oluşursa bu ayrım önemlidir. Yeni nihai analiz, tüm 200 kayıt üzerinden oranları ve ayrıca koşullu doğruluğu açıkça ayırır.
 
 
-## Başlatıcı: src/run_evaluation.py
+## Başlatıcı: src/step3_run_experiments.py
 
 Önce kanonik veri ve kayıtlar doğrulanır. Üç deney tamamlanmışsa Ollama'ya bağlanmadan çıkar; tekrar çıkarım yoktur. Eksik koşuda `/api/version`, `/api/tags`, `/api/show` ile ortam denetlenir. Veri/kod karmaları ve model/runtime kimliği `results/run_identity.json` ile karşılaştırılır. Uyuşmazlık sessizce geçilmez. Üç betik sırayla `--limit 200` ile çağrılır. Aynı dizinde tek başlatıcı çalıştırın.
 
-## Analiz: src/analyze_final.py
+## Analiz: src/step4_analyze_results.py
 
 `load_jsonl` bozuk satırı gizlemez. `recompute` ilgili deneyin kendi ayrıştırma ve şema işlevleriyle her ham yanıtı yeniden değerlendirir; kaydedilen dört bayrakla eşleşmesini zorunlu tutar. `analyze_experiment` duplicate/yabancı ID'yi reddeder. Eksik koşuda final_metrics null ve matris None olur. Tam koşuda bütün ana oranlar 200 üzerinden, koşullu doğruluk şema geçerli sayısı üzerinden hesaplanır.
 
@@ -139,7 +160,7 @@ Konsolun `Category accuracy` paydası yanıt alınan sayıdır. Kanonik rapordak
 
 ## Şekiller ve akademik rapor
 
-`src/generate_report_assets.py` aynı doğrulanmış metriklerden altı şekli PNG/SVG üretir: JSON/şema, sınıflandırma, süre, C matrisi, C kategori doğruluğu, B hata dağılımı. Grafik etiketleri gerçek sayımlardan gelir. `src/build_report_pdf.py` metrikleri ve şekilleri yeniler, gömülü DejaVu yazı tipiyle `report.pdf` oluşturur. Beş geliştirme ile 200 değerlendirme raporda ayrı belirtilir.
+`src/step5_generate_figures.py` aynı doğrulanmış metriklerden altı şekli PNG/SVG üretir: JSON/şema, sınıflandırma, süre, C matrisi, C kategori doğruluğu, B hata dağılımı. Grafik etiketleri gerçek sayımlardan gelir. `src/step6_build_report.py` metrikleri ve şekilleri yeniler, gömülü DejaVu yazı tipiyle `report.pdf` oluşturur. Beş geliştirme ile 200 değerlendirme raporda ayrı belirtilir.
 
 ## Gerçek haber yürüyüşü: ID 4000
 
@@ -173,9 +194,9 @@ Anadolu Efes bir kurum olmasına rağmen person listesinde bulunur. Bu semantik 
 ## Doğrulama ve tekrar üretim
 
 ```bash
-venv/bin/python src/run_evaluation.py
-venv/bin/python src/build_report_pdf.py
-venv/bin/python src/verify_project.py
+venv/bin/python src/step3_run_experiments.py
+venv/bin/python src/step6_build_report.py
+venv/bin/python src/step7_verify_project.py
 venv/bin/python -m unittest discover -s tests -v
 ```
 

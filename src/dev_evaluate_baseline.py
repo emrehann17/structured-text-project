@@ -1,5 +1,5 @@
 """İlk beş geliştirme örneğinin tarihsel başlangıç deneyidir.
-Ana Deney A evaluate_v2.py dosyasıdır. JSONL, her satırın bağımsız bir JSON
+Ana Deney A step3a_evaluate_prompt.py dosyasıdır. JSONL, her satırın bağımsız bir JSON
 nesnesi olduğu metin biçimidir; her sonucu ayrı kaydetmek kesintiden sonra
 kaldığımız yerden sürdürmemizi (checkpointing) sağlar.
 """

@@ -78,9 +78,13 @@ Konuşma: “Eski sonuçlar dış yedekte; bu sunum yalnız tamamlanmış 200 de
 
 1. `data/test_samples.jsonl` içindeki ilk beş kayıt ve `[5:205]` ayrımını gösterin.
 2. ID 4000 haberini A/C ham yanıtlarıyla yan yana açın; biçim ve varlık türü farkını anlatın.
-3. `venv/bin/python src/run_evaluation.py` çalıştırın: tamamlanmış kayıtlar doğrulanır ve model çağrısı yapılmaz.
-4. `venv/bin/python src/verify_project.py` ile aynı 200 ID ve ham metrik kontrolünü gösterin.
-5. `report.pdf` ve `results/figures/confusion_matrix.png` açın. Süre varsa `src/build_report_pdf.py` ile altı şekil/PDF'yi yeniden üretin.
+3. `venv/bin/python src/step3_run_experiments.py` çalıştırın: tamamlanmış kayıtlar doğrulanır ve model çağrısı yapılmaz.
+4. `venv/bin/python src/step7_verify_project.py` ile aynı 200 ID ve ham metrik kontrolünü gösterin.
+5. `report.pdf` ve `results/figures/confusion_matrix.png` açın. Süre varsa `src/step6_build_report.py` ile altı şekil/PDF'yi yeniden üretin.
+
+Dosya sırasını anlatırken 1 veri hazırlama, 2 geliştirme bağlantı denemesi, 3 deney başlatıcı, 3a A istem, 3b B JSON Schema, 3c C optimize şema, 4 analiz, 5 şekiller, 6 rapor, 7 doğrulama, 8 teslim paketi olarak ilerleyin. [Kod çalışma rehberindeki tablo](CODE_STUDY_GUIDE_TR.md) her dosyanın görevini açıklar. Başlatıcı A → B → C sırasını korur. `dev_evaluate_baseline.py` ayrı geliştirme aracıdır.
+
+Bu tamamlanmış projede canlı gösterim için 2. adımı veya geliştirme baseline'ını çalıştırmayın: bunlar gerçek model isteği yapar. 3. adım tam checkpoint'i doğrulayıp çıkar; 7. adım ham sonuçlarla metrik/karmaları karşılaştırır. 8. adım için `venv/bin/python src/step8_package_submission.py` kullanın. Mevcut PDF ve üç değerlendirme betiğinin giriş açıklamalarındaki eski komut adları kaynak korunumu nedeniyle durur; güncel komutları README ve bu rehberden alın.
 
 ## İki dakikalık açılış
 

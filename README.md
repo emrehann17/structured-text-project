@@ -64,29 +64,50 @@ The academic [report.pdf](report.pdf) distinguishes five development samples fro
 
 ## Run and reproduce
 
+The main entry point is `python src/step3_run_experiments.py`. With the project environment activated, the numbered files describe the pipeline in execution order:
+
+| Step | Python file in `src/` | Purpose |
+|---|---|---|
+| 1 | `step1_prepare_dataset.py` | Reproduce and verify the frozen 205-record selection; the included dataset is already prepared. |
+| 2 | `step2_test_model.py` | Optional single development-sample connection test; makes a real Ollama request. |
+| 3 | `step3_run_experiments.py` | Validate checkpoints and orchestrate A, then B, then C; the completed submission exits without inference. |
+| 3a | `step3a_evaluate_prompt.py` | Experiment A: prompt-only generation for the 200 evaluation records. |
+| 3b | `step3b_evaluate_json.py` | Experiment B: the same prompt with JSON Schema enforcement. |
+| 3c | `step3c_evaluate_optimized.py` | Experiment C: shorter prompt and repetition settings with the same schema. |
+| 4 | `step4_analyze_results.py` | Recompute metrics and confusion matrices from stored responses. |
+| 5 | `step5_generate_figures.py` | Refresh analysis and generate six PNG/SVG figure pairs. |
+| 6 | `step6_build_report.py` | Refresh analysis/figures and build the academic PDF. |
+| 7 | `step7_verify_project.py` | Check saved records, metrics, hashes, matrices, figures and report without inference. |
+| 8 | `step8_package_submission.py` | Run verification and create the validated submission ZIP. |
+| Development | `dev_evaluate_baseline.py` | Separate five-record baseline; excluded from the main A/B/C evaluation. |
+
+For a presentation of this completed project, run steps 3 and 7 and show the saved report/figures. Step 2 and the development baseline are not needed. Steps 4–6 reproduce artifacts from saved responses; they are not needed merely to verify the submission. Step 8 prepares the delivery archive.
+
 From the project root, with Python and the dependencies in `requirements.txt`:
 
 ```bash
 python -m venv venv
 venv/bin/python -m pip install -r requirements.txt
-venv/bin/python src/run_evaluation.py
-venv/bin/python src/build_report_pdf.py
-venv/bin/python src/verify_project.py
+venv/bin/python src/step3_run_experiments.py
+venv/bin/python src/step6_build_report.py
+venv/bin/python src/step7_verify_project.py
 venv/bin/python -m unittest discover -s tests -v
 ```
 
-The submitted run is complete: `run_evaluation.py` validates it and exits without contacting Ollama or repeating inference. `build_report_pdf.py` regenerates metrics, all six figures, and the PDF from saved responses. DejaVu Sans fonts are expected at `/usr/share/fonts/truetype/dejavu`.
+The submitted run is complete: `step3_run_experiments.py` validates it and exits without contacting Ollama or repeating inference. `step6_build_report.py` regenerates metrics, all six figures, and the PDF from saved responses. DejaVu Sans fonts are expected at `/usr/share/fonts/truetype/dejavu`.
 
-For an incomplete checkpoint, the runner checks local Ollama availability, model/dataset/code identity and existing results, then invokes A/B/C sequentially with `--limit 200`. Every completed ID is skipped, including saved errors; no automatic retry is introduced. A malformed JSONL line fails visibly. Use one runner at a time. Direct scripts are `src/evaluate_v2.py`, `src/evaluate_schema.py`, and `src/evaluate_v3.py`, each defaulting to 200 evaluation records.
+For an incomplete checkpoint, the runner checks local Ollama availability, model/dataset/code identity and existing results, then invokes A/B/C sequentially with `--limit 200`. Every completed ID is skipped, including saved errors; no automatic retry is introduced. A malformed JSONL line fails visibly. Use one runner at a time. Direct scripts are `src/step3a_evaluate_prompt.py`, `src/step3b_evaluate_json.py`, and `src/step3c_evaluate_optimized.py`, each defaulting to 200 evaluation records.
 
 For analysis only:
 
 ```bash
-venv/bin/python src/analyze_final.py
-venv/bin/python src/generate_report_assets.py
+venv/bin/python src/step4_analyze_results.py
+venv/bin/python src/step5_generate_figures.py
 ```
 
-`src/prepare_dataset.py` replays the original selection and extension algorithm, verifies the manifest hash, and refuses to overwrite different membership/order. It accepts `--source-arrow /path/to/ttc4900-train.arrow` for a local source cache. It is unnecessary for the included, already verified dataset. `src/evaluate.py` and `src/test_model.py` are development tools; the five baseline development results are separate from the main experiments.
+`src/step1_prepare_dataset.py` replays the original selection and extension algorithm, verifies the manifest hash, and refuses to overwrite different membership/order. It accepts `--source-arrow /path/to/ttc4900-train.arrow` for a local source cache. It is unnecessary for the included, already verified dataset. `src/dev_evaluate_baseline.py` and `src/step2_test_model.py` are development tools; the five baseline development results are separate from the main experiments.
+
+The three evaluation scripts are byte-for-byte unchanged by the filename reorganization. Their introductory docstrings retain the historical runner name `src/run_evaluation.py`; use `src/step3_run_experiments.py` today. The preserved PDF also contains its original reproduction filenames; the table above supplies the current commands. The report, figures, dataset and stored experiment results were not regenerated for this naming change. The historical migration inventory and manifest retain their original filenames; verification maps current evaluation names to those historical identities. Only module keys changed in `results/run_identity.json`, with all hash values preserved.
 
 ## Study and validation documents
 

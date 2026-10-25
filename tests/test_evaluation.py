@@ -12,7 +12,7 @@ import sys
 import unittest
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
-from analyze_final import analyze_experiment
+from step4_analyze_results import analyze_experiment
 
 
 class AnalysisTests(unittest.TestCase):
@@ -42,7 +42,7 @@ class AnalysisTests(unittest.TestCase):
 
     def test_complete_counts_include_api_and_format_errors(self):
         """200 payda, koşullu payda ve INVALID sütunu birbirinden ayrılmalı."""
-        for name in ("evaluate_v2", "evaluate_schema", "evaluate_v3"):
+        for name in ("step3a_evaluate_prompt", "step3b_evaluate_json", "step3c_evaluate_optimized"):
             with self.subTest(method=name):
                 samples, rows = self.fixture()
                 result, matrix = analyze_experiment(rows, samples, importlib.import_module(name))
@@ -68,7 +68,7 @@ class AnalysisTests(unittest.TestCase):
     def test_partial_run_is_pending(self):
         """199 kayıt veya boş küme nihai oran ve matris üretmemeli."""
         samples, rows = self.fixture()
-        module = importlib.import_module("evaluate_v3")
+        module = importlib.import_module("step3c_evaluate_optimized")
         for partial in ([], rows[:135], rows[:199]):
             result, matrix = analyze_experiment(partial, samples, module)
             self.assertEqual(result["status"], "pending")
@@ -78,7 +78,7 @@ class AnalysisTests(unittest.TestCase):
     def test_duplicate_foreign_id_and_false_flag_fail(self):
         """Tekrarlı/yabancı ID ve değiştirilmiş bayrak sessizce kabul edilmemeli."""
         samples, rows = self.fixture()
-        module = importlib.import_module("evaluate_v3")
+        module = importlib.import_module("step3c_evaluate_optimized")
         duplicate = rows + [rows[0]]
         foreign = copy.deepcopy(rows)
         foreign[0]["id"] = -1
@@ -100,7 +100,7 @@ class ResumeTests(unittest.TestCase):
         from unittest.mock import patch
         root = Path(__file__).resolve().parents[1]
         samples = [json.loads(line) for line in (root/'data/test_samples.jsonl').read_text().splitlines()]
-        for name,filename in [('evaluate_v2','improved_prompt_results.jsonl'),('evaluate_schema','schema_results.jsonl'),('evaluate_v3','optimized_schema_results.jsonl')]:
+        for name,filename in [('step3a_evaluate_prompt','improved_prompt_results.jsonl'),('step3b_evaluate_json','schema_results.jsonl'),('step3c_evaluate_optimized','optimized_schema_results.jsonl')]:
             module = importlib.import_module(name)
             original = (root/'results'/filename).read_bytes()
             rows = [json.loads(line) for line in original.splitlines()]
@@ -123,9 +123,9 @@ class ResumeTests(unittest.TestCase):
         from contextlib import redirect_stdout
         from io import StringIO
         from unittest.mock import patch
-        import run_evaluation
-        with patch.object(run_evaluation.requests,'get',side_effect=AssertionError('No network')) as get, patch.object(run_evaluation.requests,'post',side_effect=AssertionError('No network')) as post, patch.object(run_evaluation.subprocess,'run',side_effect=AssertionError('No subprocess')) as run, redirect_stdout(StringIO()):
-            run_evaluation.main()
+        import step3_run_experiments
+        with patch.object(step3_run_experiments.requests,'get',side_effect=AssertionError('No network')) as get, patch.object(step3_run_experiments.requests,'post',side_effect=AssertionError('No network')) as post, patch.object(step3_run_experiments.subprocess,'run',side_effect=AssertionError('No subprocess')) as run, redirect_stdout(StringIO()):
+            step3_run_experiments.main()
             get.assert_not_called()
             post.assert_not_called()
             run.assert_not_called()
