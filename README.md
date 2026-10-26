@@ -1,99 +1,107 @@
-# Structured Text Classification and Information Extraction
+# Project I: Structured Text Classification & Information Extraction
 
-This project compares three ways to obtain structured data from Turkish news using a local **qwen2.5:3b** model through Ollama. Each response assigns one of seven news categories and extracts person, organization and location lists. The implementation separates JSON syntax, schema compliance and classification accuracy. No model training is performed.
+A small Python pipeline classifies Turkish news into seven categories and extracts people, organizations and locations as structured JSON. It uses the local open-source **Qwen2.5:3b** model through **Ollama**. There are no cloud LLM APIs, training or fine-tuning.
 
-## Dataset: 205 = 5 + 200
+The course requirements are demonstrated by schema-constrained generation, explicit JSON cleaning and `try-except` handling, evaluation of **200 real saved responses**, documented Python code, offline tests and a [brief technical report (PDF)](report/technical_report.pdf) ([Markdown](report/technical_report.md)).
 
-[data/test_samples.jsonl](data/test_samples.jsonl) contains 205 records: `samples[:5]` are development samples; `samples[5:205]` are the 200 evaluation records shared by A, B and C. Each experiment has 200 saved responses with zero API errors.
+## Files
 
-Selection uses the TTC4900 `train` source, seed 42, a 150–3000 character filter and a deterministic quota extension. [The dataset manifest](data/test_samples_manifest.json) fixes provenance, membership, order and SHA-256. Evaluation support is 29 each for `dunya`, `ekonomi`, `kultur`, `saglik`, and 28 each for `siyaset`, `spor`, `teknoloji`.
+```text
+ data/test_samples.jsonl                 Frozen news texts and reference categories
+ src/llm_pipeline.py                     Prompt, local request, parsing and validation
+ src/evaluate.py                         Offline analysis or explicit fresh inference
+ results/optimized_schema_results.jsonl  Original completed responses, unchanged
+ results/summary.json                    Recomputed metrics
+ results/figures/json_success.png        Four evaluation rates
+ report/technical_report.md              Brief report source
+ report/technical_report.pdf             Two-page report
+ report/evidence.sha256                  Preservation hashes; not needed to run
+ tests/test_pipeline.py                  Offline unit and integration tests
+ README.md
+ requirements.txt
+ .gitignore
+```
 
-The evaluation has **200 unique IDs but 199 unique texts**: IDs 2138 and 2296 contain identical text. Across all 205 records there are 204 unique texts. Membership and order were preserved after inference; measurements are per record.
+## Dataset and model
 
-## Pipeline architecture
+The frozen TTC4900 selection (`savasy/ttc4900`, train split) contains 205 records: five development records and **200 evaluation records at `samples[5:205]`**. IDs, texts, order and reference labels are preserved. Selection used seed 42, a 150–3000 character filter and category quotas: 29 each for `dunya`, `ekonomi`, `kultur`, `saglik`; 28 each for `siyaset`, `spor`, `teknoloji`. There are **200 distinct evaluation IDs but 199 unique texts**; IDs 2138 and 2296 contain the same text. The prepared dataset is included, so no download or preparation script is required.
 
-News → prompt → Ollama response → JSON parsing → schema validation → category comparison → JSONL checkpoint → analysis → figures → verification.
+The completed run used `qwen2.5:3b`, JSON Schema in Ollama's `format` field, the Turkish prompt in `build_prompt()`, and these unchanged options:
 
-| File in `src/` | Role |
-|---|---|
-| `step1_prepare_dataset.py` | Reproduce the frozen selection and verify its manifest; already prepared in this repository. |
-| `step2_test_model.py` | Test local Ollama with one development sample; makes a real model request. |
-| `step3_run_experiments.py` | Main entry point; validate checkpoints and run A → B → C when incomplete. |
-| `step3a_evaluate_prompt.py` | Experiment A: prompt-only generation. |
-| `step3b_evaluate_json.py` | Experiment B: generation with JSON Schema. |
-| `step3c_evaluate_optimized.py` | Experiment C: shorter prompt and repetition controls with JSON Schema. |
-| `step4_analyze_results.py` | Recompute saved metrics and confusion matrices. |
-| `step5_generate_figures.py` | Refresh analysis and generate six PNG/SVG figure pairs. |
-| `step6_verify_project.py` | Verify data, responses, metrics, matrices, figures and source hashes without inference. |
-| `dev_evaluate_baseline.py` | Separate five-sample development baseline; excluded from A/B/C results. |
+```python
+{"temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 384,
+ "repeat_penalty": 1.2, "repeat_last_n": 128}
+```
 
-## Experiments
+Requests use `http://localhost:11434/api/generate`, `stream=False` and `timeout=(5, 60)`. These timeout values apply to connection and read waits. The saved environment records Ollama `0.40.2`; a new installation or model version need not produce identical outputs.
 
-- **A — Prompt only:** detailed Turkish prompt without generation-time schema enforcement.
-- **B — JSON Schema:** the same prompt as A, with `format=JSON_SCHEMA`.
-- **C — Optimized schema:** shorter prompt, the same schema, `repeat_penalty=1.2` and `repeat_last_n=128`.
+## JSON output and pipeline
 
-All three use `temperature=0`, `seed=42`, `num_ctx=4096`, `num_predict=384`, `stream=False` and `timeout=(5, 60)`. `top_k` and `top_p` are not explicitly configured. Recorded Ollama version: `0.40.2`. [Run identity](results/run_identity.json) records the model digest and dataset/source hashes; model parameter metadata was null.
+Illustrative output shape (not an additional experimental result):
 
-## JSON parsing and schema validation
+```json
+{
+  "category": "spor",
+  "entities": {"person": [], "organization": [], "location": []}
+}
+```
 
-The HTTP response is a JSON envelope; its `response` field contains the model's output text. Raw JSON success requires that text to parse directly. If parsing fails, the existing cleaner removes Markdown fences and attempts to locate a complete JSON object; it does not repair truncated JSON.
+News → Turkish prompt → local Ollama → raw response → `json.loads()` → cleaning if needed → schema validation → reference-category comparison → saved result.
 
-Schema validation requires a valid category and `entities` containing `person`, `organization` and `location` arrays of strings, with no extra fields. The five-entity maximum is a prompt instruction, not a schema constraint. A schema-valid category is compared with the reference label. API, parsing and schema failures remain in the denominator and the confusion matrices' `INVALID` column.
+`parse_json_response()` first calls `json.loads(raw_output)` directly. On `json.JSONDecodeError`, it calls `clean_json_output()` and retries parsing. The cleaner removes whitespace and Markdown fences, then finds the first decodable JSON object to handle surrounding explanations. It does not invent fields or complete truncated JSON. The original recovery behavior can find a complete inner object inside truncated text; that object must still pass schema validation.
 
-## Experimental results
+`validate_schema()` rejects missing or extra fields, categories outside the seven labels, and entity fields that are not lists of strings. The prompt asks for at most five names per list and no duplicates; these are prompt instructions, not additional schema rules. `evaluate_sample()` records connection, HTTP and API-envelope errors and allows the next sample to continue. JSON syntax and classification correctness are scored separately.
 
-All metrics are verified against saved raw responses. Main rates use **200 requests**; conditional accuracy uses the schema-valid count.
+## Install and analyze offline
 
-| Metric | A: Prompt only | B: JSON Schema | C: Optimized schema |
-|---|---:|---:|---:|
-| Responses | 200 | 200 | 200 |
-| Raw JSON | 0/200 (0.00%) | 158/200 (79.00%) | 200/200 (100.00%) |
-| Clean JSON | 166/200 (83.00%) | 158/200 (79.00%) | 200/200 (100.00%) |
-| Schema valid | 162/200 (81.00%) | 158/200 (79.00%) | 200/200 (100.00%) |
-| Correct category | 80/200 (40.00%) | 87/200 (43.50%) | 107/200 (53.50%) |
-| Conditional accuracy | 80/162 (49.38%) | 87/158 (55.06%) | 107/200 (53.50%) |
-| Total time (s) | 689.88 | 505.97 | 241.83 |
-| Mean time (s) | 3.45 | 2.53 | 1.21 |
-
-Evidence: [metrics](results/metrics_summary.json), [A responses](results/improved_prompt_results.jsonl), [B responses](results/schema_results.jsonl), [C responses](results/optimized_schema_results.jsonl). Confusion matrices for [A](results/confusion_matrix_A.csv), [B](results/confusion_matrix_B.csv) and [C](results/v3_confusion_matrix.csv) each total 200; rows are reference categories and columns are predictions.
-
-## Six evaluation visualizations
-
-The saved figures remain unchanged and are available in both formats:
-
-| Visualization | PNG | SVG |
-|---|---|---|
-| JSON and schema success | [PNG](results/figures/json_success_comparison.png) | [SVG](results/figures/json_success_comparison.svg) |
-| Classification accuracy | [PNG](results/figures/classification_accuracy.png) | [SVG](results/figures/classification_accuracy.svg) |
-| Inference runtime | [PNG](results/figures/inference_performance.png) | [SVG](results/figures/inference_performance.svg) |
-| Experiment C confusion matrix | [PNG](results/figures/confusion_matrix.png) | [SVG](results/figures/confusion_matrix.svg) |
-| Experiment C category accuracy | [PNG](results/figures/category_accuracy.png) | [SVG](results/figures/category_accuracy.svg) |
-| Experiment B failure analysis | [PNG](results/figures/schema_failure_analysis.png) | [SVG](results/figures/schema_failure_analysis.svg) |
-
-## Run and verify
-
-From the project root, create an environment if needed, install dependencies and activate it:
+Use Python 3.10 or later. From the repository root:
 
 ```bash
-python -m venv venv
-source venv/bin/activate
+python3 -m venv .venv
+source .venv/bin/activate
 python -m pip install -r requirements.txt
-python src/step3_run_experiments.py
-python src/step6_verify_project.py
+python src/evaluate.py --analyze
 python -m unittest discover -s tests -v
 ```
 
-The included run is complete: the main entry point validates all 600 records and exits **without contacting Ollama**. Verification recomputes metrics in memory and checks stored artifacts. Unit tests cover incomplete analysis, invalid IDs/flags, checkpoint resume and the completed runner's absence of network/subprocess calls.
+Analysis and tests require no Ollama server or model. Running `python src/evaluate.py` without arguments also analyzes saved results. Analysis recomputes flags from raw text, checks IDs and reference labels, and refreshes only `results/summary.json` and the figure. Missing or duplicate result IDs are rejected. Raw response files are never rewritten.
 
-For an incomplete checkpoint, the runner checks Ollama availability and model/dataset/code identity, then invokes A/B/C sequentially with `--limit 200`. Saved IDs, including errors, are skipped; malformed JSONL fails visibly. Use one runner at a time. Step 2 and the development baseline are unnecessary for presenting the completed run and can make model requests.
+## Fresh local inference (explicit)
 
-Steps 4 and 5 can regenerate analysis and figures from saved responses without inference; they are unnecessary for verification. Step 1 accepts `--source-arrow /path/to/ttc4900-train.arrow` for a local source cache and refuses to overwrite different dataset membership/order.
+Install Ollama, start its local service (`ollama serve` if it is not already running), then download the model and explicitly request a new run:
 
-## Limitations
+```bash
+ollama pull qwen2.5:3b
+python src/evaluate.py --run --results results/fresh_run.jsonl
+```
 
-A has 34 outputs unparseable after cleaning and four parsed outputs that fail the schema. C has 200 structurally valid outputs but 93 incorrect categories. Structural validity does not establish semantic entity correctness: no human-labeled entity reference is available, so no NER F1 or hallucination rate is claimed. Entity checks cover structure, repetition and list length only.
+This makes 200 local model requests. The output file must not already exist; the command refuses to overwrite it. Each result is saved immediately. A new summary and figure are saved beside that file, leaving the published results intact. To analyze a completed fresh run later:
 
-C changes both prompt and repetition settings, so their individual effects are not isolated. Duplicate text limits record independence. Results describe this saved model/runtime and sample; hardware/GPU utilization was not remeasured.
+```bash
+python src/evaluate.py --analyze --results results/fresh_run.jsonl
+```
 
-Study materials: [code guide](docs/CODE_STUDY_GUIDE_TR.md), [technical Q&A](docs/TECHNICAL_QA_TR.md), [presentation plan](docs/PRESENTATION_PREPARATION_TR.md), [verification summary](docs/VERIFICATION_SUMMARY_TR.md) and [machine-readable verification](docs/verification.json). Historical source-preservation evidence remains in [the migration manifest](docs/migration_manifest.json).
+An interrupted file is retained for inspection, but incomplete runs cannot produce final metrics. Choose another new filename to start again. Tests mock the request path; **no fresh inference was performed during simplification**.
+
+## Measured results
+
+These are recomputed from the existing completed run, not a newly executed experiment. The original response file retains its name and bytes.
+
+| Metric | Count / all requests | Rate |
+|---|---:|---:|
+| First-attempt JSON parsing | 200 / 200 | **100%** |
+| JSON parsing after cleaning | 200 / 200 | 100% |
+| Schema validity | 200 / 200 | 100% |
+| Classification accuracy | 107 / 200 | **53.5%** |
+
+All 200 requests returned responses; API errors: **0**. Saved elapsed time totals **241.83 seconds**, averaging **1.21 seconds per record**. It includes request waiting and local parsing; offline reanalysis does not remeasure inference time.
+
+Each rate is `successful_count / total_requests * 100`. API, parsing and schema failures stay in the denominator. First-attempt success means the unmodified model text parses before cleaning. The post-cleaning metric includes direct successes plus recovered responses; **zero responses needed recovery in this run**. Classification is counted correct only after schema validation and equality with the reference label.
+
+![Evaluation rates for 200 records](results/figures/json_success.png)
+
+## Limitations and preserved evidence
+
+Valid JSON does not guarantee correct classification or factual entities. Entity extraction was performed, but no manually annotated entity ground truth was used, so semantic entity accuracy and hallucination detection were not evaluated. One repeated text slightly reduces evaluation diversity. Findings apply to this dataset and configuration.
+
+The complete pre-simplification code and tracked experiments are preserved on [`backup/pre-simplification`](https://github.com/emrehann17/structured-text-project/tree/backup/pre-simplification), at commit `f970b0c9bbb622d8e5a6d3ccf5fe4aea90aca7cb`. [SHA-256 records](report/evidence.sha256) cover the unchanged dataset and every original model response file; historical response files can be checked on that branch. Hashes are preservation evidence, not an everyday execution step.

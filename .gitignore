@@ -1,45 +1,22 @@
-# Virtual environments
+# Local environments and caches
 .venv/
 venv/
 env/
-
-# Python bytecode and cache
 __pycache__/
 *.py[cod]
-*$py.class
 .pytest_cache/
-.mypy_cache/
-.ruff_cache/
 
-# OS and editor artifacts
-.DS_Store
-Thumbs.db
-*.swp
-*.swo
-*~
-.idea/
-.vscode/
-
-# Python virtual environments
-venv/
-.venv/
-
-# Python cache
-__pycache__/
-*.pyc
-
-# Secrets
+# Secrets, editor files and model weights
 .env
 .env.*
-
-# Local model weights
+.DS_Store
+.idea/
+.vscode/
+*.swp
 *.gguf
 *.safetensors
 
-# Generated submission archives
-*.zip
-
-# Optional historical artifacts
+# Historical local artifacts and optional fresh runs
 /legacy/
-/report.pdf
-/structured-text-project-submission.zip
+*.zip
+/results/fresh*

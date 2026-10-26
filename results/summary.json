@@ -1,0 +1,17 @@
+{
+  "total_requests": 200,
+  "responses_received": 200,
+  "api_errors": 0,
+  "raw_json_success_count": 200,
+  "raw_json_success_pct": 100.0,
+  "clean_json_success_count": 200,
+  "clean_json_success_pct": 100.0,
+  "schema_success_count": 200,
+  "schema_success_pct": 100.0,
+  "classification_accuracy_count": 107,
+  "classification_accuracy_pct": 53.5,
+  "total_measured_seconds": 241.83,
+  "average_measured_seconds": 1.21,
+  "source_results": "results/optimized_schema_results.jsonl",
+  "analysis": "Recomputed from saved raw responses; timing comes from saved measurements"
+}
