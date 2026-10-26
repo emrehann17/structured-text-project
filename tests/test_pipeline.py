@@ -1,4 +1,4 @@
-"""Offline tests; synthetic error cases are fixtures, never experimental results."""
+"""Çevrimdışı testler; yapay hata örnekleri test verisidir, deney sonucu değildir."""
 
 from contextlib import redirect_stdout
 from copy import deepcopy

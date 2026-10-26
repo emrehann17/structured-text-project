@@ -1,43 +1,46 @@
-# Project I: Structured Text Classification & Information Extraction
+# Proje I: Yapılandırılmış Metin Sınıflandırma ve Bilgi Çıkarımı
 
-A small Python pipeline classifies Turkish news into seven categories and extracts people, organizations and locations as structured JSON. It uses the local open-source **Qwen2.5:3b** model through **Ollama**. There are no cloud LLM APIs, training or fine-tuning.
+Bu Python uygulaması, Türkçe haberleri yedi kategoriye ayırır ve kişi, kurum ve yer adlarını yapılandırılmış JSON biçiminde çıkarır. **Ollama** üzerinden yerel olarak çalışan açık kaynaklı **Qwen2.5:3b** modelini kullanır. Bulut LLM API’si, model eğitimi veya ince ayar (fine-tuning) kullanılmaz.
 
-The course requirements are demonstrated by schema-constrained generation, explicit JSON cleaning and `try-except` handling, evaluation of **200 real saved responses**, documented Python code, offline tests and a [brief technical report (PDF)](report/technical_report.pdf) ([Markdown](report/technical_report.md)).
+Dersin gereklilikleri; şemayla sınırlandırılmış üretim, açık JSON temizleme ve `try-except` kullanımı, **kaydedilmiş 200 gerçek yanıtın** değerlendirilmesi, açıklamalı Python kodu, çevrimdışı testler ve kısa teknik raporla karşılanır. Raporun [Türkçe PDF](report/technical_report_tr.pdf) ve [Türkçe Markdown](report/technical_report_tr.md) kopyaları bulunur. Özgün [İngilizce PDF](report/technical_report.pdf) ve [İngilizce Markdown](report/technical_report.md) dosyaları da korunmuştur.
 
-## Files
+## Dosyalar
 
 ```text
- data/test_samples.jsonl                 Frozen news texts and reference categories
- src/llm_pipeline.py                     Prompt, local request, parsing and validation
- src/evaluate.py                         Offline analysis or explicit fresh inference
- results/optimized_schema_results.jsonl  Original completed responses, unchanged
- results/summary.json                    Recomputed metrics
- results/figures/json_success.png        Four evaluation rates
- report/technical_report.md              Brief report source
- report/technical_report.pdf             Two-page report
- report/evidence.sha256                  Preservation hashes; not needed to run
- tests/test_pipeline.py                  Offline unit and integration tests
+ data/test_samples.jsonl                 Sabit veri kümesi: haberler ve referans kategoriler
+ src/llm_pipeline.py                     İstem, yerel istek, ayrıştırma ve doğrulama
+ src/evaluate.py                         Çevrimdışı analiz veya açıkça başlatılan yeni çıkarım
+ results/optimized_schema_results.jsonl  Tamamlanmış çalışmanın değişmemiş özgün yanıtları
+ results/summary.json                    Yeniden hesaplanan metrikler
+ results/figures/json_success.png        Dört değerlendirme oranı
+ report/technical_report.md              Özgün İngilizce rapor
+ report/technical_report.pdf             Özgün İngilizce raporun PDF sürümü
+ report/technical_report_tr.md           Türkçe rapor kopyası
+ report/technical_report_tr.pdf          Türkçe raporun PDF sürümü
+ report/figures/json_success_tr.png      Grafiğin Türkçe kopyası
+ report/evidence.sha256                  Koruma amaçlı özetler; çalıştırma için gerekmez
+ tests/test_pipeline.py                  Çevrimdışı birim ve bütünleştirme testleri
  README.md
  requirements.txt
  .gitignore
 ```
 
-## Dataset and model
+## Veri kümesi ve model
 
-The frozen TTC4900 selection (`savasy/ttc4900`, train split) contains 205 records: five development records and **200 evaluation records at `samples[5:205]`**. IDs, texts, order and reference labels are preserved. Selection used seed 42, a 150–3000 character filter and category quotas: 29 each for `dunya`, `ekonomi`, `kultur`, `saglik`; 28 each for `siyaset`, `spor`, `teknoloji`. There are **200 distinct evaluation IDs but 199 unique texts**; IDs 2138 and 2296 contain the same text. The prepared dataset is included, so no download or preparation script is required.
+Sabit TTC4900 seçkisi (`savasy/ttc4900`, train bölümü) 205 kayıttan oluşur: beş geliştirme kaydı ve **`samples[5:205]` dilimindeki 200 değerlendirme kaydı**. Kimlikler, metinler, sıralama ve referans etiketler korunmuştur. Seçimde 42 rastgelelik tohumu, 150–3000 karakter filtresi ve kategori kotaları kullanılmıştır: `dunya`, `ekonomi`, `kultur`, `saglik` için 29’ar; `siyaset`, `spor`, `teknoloji` için 28’er kayıt. Değerlendirmede **200 farklı kayıt kimliği, ancak 199 benzersiz metin** vardır; 2138 ve 2296 kimlikli kayıtlar aynı metni içerir. Hazır veri kümesi depoda bulunduğundan indirme veya hazırlama betiği gerekmez.
 
-The completed run used `qwen2.5:3b`, JSON Schema in Ollama's `format` field, the Turkish prompt in `build_prompt()`, and these unchanged options:
+Tamamlanmış çalışmada `qwen2.5:3b`, Ollama’nın `format` alanında JSON Schema, `build_prompt()` içindeki Türkçe istem ve aşağıdaki değişmemiş ayarlar kullanılmıştır:
 
 ```python
 {"temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 384,
  "repeat_penalty": 1.2, "repeat_last_n": 128}
 ```
 
-Requests use `http://localhost:11434/api/generate`, `stream=False` and `timeout=(5, 60)`. These timeout values apply to connection and read waits. The saved environment records Ollama `0.40.2`; a new installation or model version need not produce identical outputs.
+İstekler `http://localhost:11434/api/generate` adresine, `stream=False` ve `timeout=(5, 60)` ile gönderilir. Zaman aşımı değerleri sırasıyla bağlantı ve okuma beklemelerine uygulanır. Kaydedilmiş ortam bilgisi Ollama sürümünü `0.40.2` olarak belirtir; yeni bir kurulum veya model sürümü aynı çıktıları üretmeyebilir.
 
-## JSON output and pipeline
+## JSON çıktısı ve işlem akışı
 
-Illustrative output shape (not an additional experimental result):
+Çıktı yapısını gösteren örnek; ek bir deney sonucu değildir:
 
 ```json
 {
@@ -46,15 +49,15 @@ Illustrative output shape (not an additional experimental result):
 }
 ```
 
-News → Turkish prompt → local Ollama → raw response → `json.loads()` → cleaning if needed → schema validation → reference-category comparison → saved result.
+Haber → Türkçe istem → yerel Ollama → ham yanıt → `json.loads()` → gerekirse temizleme → şema doğrulama → referans kategoriyle karşılaştırma → sonucun kaydedilmesi.
 
-`parse_json_response()` first calls `json.loads(raw_output)` directly. On `json.JSONDecodeError`, it calls `clean_json_output()` and retries parsing. The cleaner removes whitespace and Markdown fences, then finds the first decodable JSON object to handle surrounding explanations. It does not invent fields or complete truncated JSON. The original recovery behavior can find a complete inner object inside truncated text; that object must still pass schema validation.
+`parse_json_response()` önce doğrudan `json.loads(raw_output)` çağırır. `json.JSONDecodeError` oluşursa `clean_json_output()` çağrılır ve ayrıştırma yeniden denenir. Temizleyici, baştaki ve sondaki boşlukları ve Markdown kod çitlerini kaldırır; çevredeki açıklama metinlerini atlamak için ilk ayrıştırılabilir JSON nesnesini bulur. Eksik alan uydurmaz ve kesilmiş JSON’u tamamlamaz. Özgün kurtarma davranışı, kesilmiş metnin içindeki tamamlanmış bir iç nesneyi bulabilir; bu nesne yine de şema doğrulamasından geçmelidir.
 
-`validate_schema()` rejects missing or extra fields, categories outside the seven labels, and entity fields that are not lists of strings. The prompt asks for at most five names per list and no duplicates; these are prompt instructions, not additional schema rules. `evaluate_sample()` records connection, HTTP and API-envelope errors and allows the next sample to continue. JSON syntax and classification correctness are scored separately.
+`validate_schema()` eksik veya fazla alanları, yedi etiket dışındaki kategorileri ve metin listesi olmayan varlık alanlarını reddeder. İstemde her liste için en fazla beş ad ve tekrarsızlık istenir; bunlar ek şema kuralları değil, istem talimatlarıdır. `evaluate_sample()` bağlantı, HTTP ve API yanıt gövdesi hatalarını kaydeder; sonraki örneğin işlenmesini sağlar. JSON sözdizimi başarısı ve sınıflandırma doğruluğu ayrı değerlendirilir.
 
-## Install and analyze offline
+## Kurulum ve çevrimdışı analiz
 
-Use Python 3.10 or later. From the repository root:
+Python 3.10 veya üzerini kullanın. Depo kök dizininde:
 
 ```bash
 python3 -m venv .venv
@@ -64,44 +67,44 @@ python src/evaluate.py --analyze
 python -m unittest discover -s tests -v
 ```
 
-Analysis and tests require no Ollama server or model. Running `python src/evaluate.py` without arguments also analyzes saved results. Analysis recomputes flags from raw text, checks IDs and reference labels, and refreshes only `results/summary.json` and the figure. Missing or duplicate result IDs are rejected. Raw response files are never rewritten.
+Analiz ve testler için Ollama sunucusu veya model gerekmez. `python src/evaluate.py` komutu, parametre verilmediğinde de kayıtlı sonuçları analiz eder. Analiz, başarı bayraklarını ham metinden yeniden hesaplar, kimlikleri ve referans etiketleri denetler; yalnızca `results/summary.json` ile sonuç grafiğini günceller. Eksik veya yinelenen sonuç kimlikleri reddedilir. Ham yanıt dosyaları yeniden yazılmaz.
 
-## Fresh local inference (explicit)
+## Yeni yerel çıkarım çalıştırma
 
-Install Ollama, start its local service (`ollama serve` if it is not already running), then download the model and explicitly request a new run:
+Ollama’yı kurun ve yerel hizmetini başlatın; zaten çalışmıyorsa `ollama serve` kullanın. Ardından modeli indirip yeni çalışmayı açıkça başlatın:
 
 ```bash
 ollama pull qwen2.5:3b
 python src/evaluate.py --run --results results/fresh_run.jsonl
 ```
 
-This makes 200 local model requests. The output file must not already exist; the command refuses to overwrite it. Each result is saved immediately. A new summary and figure are saved beside that file, leaving the published results intact. To analyze a completed fresh run later:
+Bu komut yerel modele 200 istek gönderir. Çıktı dosyası önceden bulunmamalıdır; komut mevcut dosyanın üzerine yazmayı reddeder. Her sonuç hemen kaydedilir. Yeni özet ve grafik, bu dosyanın yanına yazılır; yayımlanmış sonuçlar korunur. Tamamlanmış yeni bir çalışmayı daha sonra analiz etmek için:
 
 ```bash
 python src/evaluate.py --analyze --results results/fresh_run.jsonl
 ```
 
-An interrupted file is retained for inspection, but incomplete runs cannot produce final metrics. Choose another new filename to start again. Tests mock the request path; **no fresh inference was performed during simplification**.
+Kesintiye uğrayan çalışmanın dosyası inceleme için saklanır; ancak tamamlanmamış çalışmalardan nihai metrik üretilmez. Baştan başlatmak için yeni bir dosya adı seçin. Testlerde istekler taklit edilir (mock); **sadeleştirme sırasında yeni model çıkarımı yapılmamıştır**.
 
-## Measured results
+## Ölçülen sonuçlar
 
-These are recomputed from the existing completed run, not a newly executed experiment. The original response file retains its name and bytes.
+Aşağıdaki değerler yeni bir deneyden değil, mevcut tamamlanmış çalışmanın yeniden analizinden elde edilmiştir. Özgün yanıt dosyasının adı ve baytları korunmuştur.
 
-| Metric | Count / all requests | Rate |
+| Metrik | Başarılı / tüm istekler | Oran |
 |---|---:|---:|
-| First-attempt JSON parsing | 200 / 200 | **100%** |
-| JSON parsing after cleaning | 200 / 200 | 100% |
-| Schema validity | 200 / 200 | 100% |
-| Classification accuracy | 107 / 200 | **53.5%** |
+| İlk denemede JSON ayrıştırma | 200 / 200 | **%100** |
+| Temizleme sonrası JSON ayrıştırma | 200 / 200 | %100 |
+| Şema geçerliliği | 200 / 200 | %100 |
+| Sınıflandırma doğruluğu | 107 / 200 | **%53,5** |
 
-All 200 requests returned responses; API errors: **0**. Saved elapsed time totals **241.83 seconds**, averaging **1.21 seconds per record**. It includes request waiting and local parsing; offline reanalysis does not remeasure inference time.
+200 isteğin tamamına yanıt alınmıştır; API hatası sayısı **0**’dır. Kaydedilen toplam süre **241,83 saniye**, kayıt başına ortalama süre **1,21 saniye**dir. Bu süre, isteğin yanıtını beklemeyi ve yerel ayrıştırmayı kapsar; çevrimdışı analiz çıkarım süresini yeniden ölçmez.
 
-Each rate is `successful_count / total_requests * 100`. API, parsing and schema failures stay in the denominator. First-attempt success means the unmodified model text parses before cleaning. The post-cleaning metric includes direct successes plus recovered responses; **zero responses needed recovery in this run**. Classification is counted correct only after schema validation and equality with the reference label.
+Her oran `başarılı_sayısı / toplam_istek_sayısı * 100` ile hesaplanır. API, ayrıştırma ve şema hataları paydada kalır. İlk deneme başarısı, modelin değiştirilmemiş metninin temizleme öncesinde ayrıştırılabilmesidir. Temizleme sonrası metrik, doğrudan başarılı yanıtları ve kurtarılan yanıtları birlikte içerir; **bu çalışmada hiçbir yanıtın kurtarılması gerekmemiştir**. Sınıflandırma, ancak şema doğrulaması başarılıysa ve tahmin referans etiketle aynıysa doğru sayılır.
 
-![Evaluation rates for 200 records](results/figures/json_success.png)
+![200 kayıt için değerlendirme oranları](report/figures/json_success_tr.png)
 
-## Limitations and preserved evidence
+## Sınırlılıklar ve korunan kanıtlar
 
-Valid JSON does not guarantee correct classification or factual entities. Entity extraction was performed, but no manually annotated entity ground truth was used, so semantic entity accuracy and hallucination detection were not evaluated. One repeated text slightly reduces evaluation diversity. Findings apply to this dataset and configuration.
+Geçerli JSON, doğru sınıflandırmayı veya varlıkların gerçekliğini garanti etmez. Varlık çıkarımı yapılmıştır; ancak elle etiketlenmiş varlık referansları kullanılmadığından anlamsal varlık doğruluğu ve halüsinasyon tespiti değerlendirilmemiştir. Tekrarlanan bir metin, değerlendirme çeşitliliğini bir miktar azaltır. Bulgular bu veri kümesi ve yapılandırma için geçerlidir.
 
-The complete pre-simplification code and tracked experiments are preserved on [`backup/pre-simplification`](https://github.com/emrehann17/structured-text-project/tree/backup/pre-simplification), at commit `f970b0c9bbb622d8e5a6d3ccf5fe4aea90aca7cb`. [SHA-256 records](report/evidence.sha256) cover the unchanged dataset and every original model response file; historical response files can be checked on that branch. Hashes are preservation evidence, not an everyday execution step.
+Sadeleştirme öncesindeki tüm kod ve Git ile izlenen deneyler, [`backup/pre-simplification`](https://github.com/emrehann17/structured-text-project/tree/backup/pre-simplification) dalındaki `f970b0c9bbb622d8e5a6d3ccf5fe4aea90aca7cb` commit’inde korunur. [SHA-256 kayıtları](report/evidence.sha256), değişmemiş veri kümesini ve tüm özgün model yanıt dosyalarını kapsar; geçmiş yanıt dosyaları bu dalda denetlenebilir. Bu özetler koruma kanıtıdır; günlük çalıştırma akışının bir adımı değildir.

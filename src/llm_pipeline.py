@@ -1,4 +1,4 @@
-"""Local news classification: unchanged completed-run prompt and generation settings."""
+"""Yerel haber sınıflandırması: tamamlanmış çalışmanın istemi ve üretim ayarları korunmuştur."""
 
 import json
 import re
@@ -36,7 +36,7 @@ JSON_SCHEMA = {
 
 
 def build_prompt(text):
-    """Insert news into the original Turkish prompt, including its whitespace."""
+    """Haberi, boşluk düzenini koruyarak özgün Türkçe isteme yerleştirir."""
     return f"""
 Türkçe haberleri analiz eden bir bilgi çıkarma sistemisin.
 
@@ -70,7 +70,7 @@ HABER:
 
 
 def call_ollama(text):
-    """Request one non-streaming response from the local server only."""
+    """Yalnızca yerel sunucudan, parçalara bölünmeden dönen tek bir yanıt ister."""
     response = requests.post(
         OLLAMA_URL,
         json={"model": MODEL, "prompt": build_prompt(text), "stream": False,
@@ -85,10 +85,10 @@ def call_ollama(text):
 
 
 def clean_json_output(raw_output):
-    """Remove fences/prose using the completed run's recovery rules.
+    """Tamamlanmış çalışmanın kurtarma kurallarıyla kod çitlerini ve açıklamaları kaldırır.
 
-    Keep the first decodable object; never add missing braces or fields.
-    A fragment recovered from truncated input still needs schema validation.
+    İlk ayrıştırılabilir nesneyi korur; eksik süslü parantez veya alan eklemez.
+    Kesilmiş girdiden kurtarılan bir parça da şema doğrulamasından geçmelidir.
     """
     cleaned = raw_output.strip()
     cleaned = re.sub(r"^```(?:json)?\s*", "", cleaned, flags=re.IGNORECASE)
@@ -111,7 +111,7 @@ def clean_json_output(raw_output):
 
 
 def parse_json_response(raw_output):
-    """Return (parsed value, first-attempt success, success after recovery)."""
+    """(Ayrıştırılan değer, ilk deneme başarısı, kurtarma sonrası başarı) döndürür."""
     try:
         parsed = json.loads(raw_output)  # No strip, cleaning or repair first.
         return parsed, True, True
@@ -124,7 +124,7 @@ def parse_json_response(raw_output):
 
 
 def validate_schema(obj):
-    """Check exact fields, allowed category and three lists of strings."""
+    """Alanların tamlığını, izin verilen kategoriyi ve üç metin listesini denetler."""
     if not isinstance(obj, dict) or set(obj) != {"category", "entities"}:
         return False
     if not isinstance(obj["category"], str) or obj["category"] not in CATEGORIES:
@@ -138,7 +138,7 @@ def validate_schema(obj):
 
 
 def evaluate_response(raw_output, true_category=None):
-    """Score model text independently of HTTP and previously saved flags."""
+    """Model metnini HTTP sürecinden ve kayıtlı başarı bayraklarından bağımsız değerlendirir."""
     parsed, raw_ok, clean_ok = parse_json_response(raw_output)
     schema_ok = clean_ok and validate_schema(parsed)
     return {
@@ -150,7 +150,7 @@ def evaluate_response(raw_output, true_category=None):
 
 
 def evaluate_sample(sample):
-    """Run one request; record API/format failures so evaluation can continue."""
+    """Tek istek yapar; değerlendirme sürebilsin diye API ve biçim hatalarını kaydeder."""
     result = {
         "id": sample["id"], "true_category": sample.get("true_category"),
         "raw_json_valid": False, "clean_json_valid": False,

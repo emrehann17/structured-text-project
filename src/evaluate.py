@@ -1,4 +1,4 @@
-"""Analyze the 200 saved responses offline, or explicitly run fresh local inference."""
+"""Kayıtlı 200 yanıtı çevrimdışı analiz eder; açıkça istenirse yerel modelle yeni çıkarım yapar."""
 
 import argparse
 import json
@@ -18,13 +18,13 @@ METRICS = {
 
 
 def load_jsonl(path):
-    """Read JSONL without hiding corrupt or incomplete saved records."""
+    """Bozuk veya eksik kayıtları gizlemeden JSONL dosyasını okur."""
     return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
             if line.strip()]
 
 
 def analyze_results(samples, rows):
-    """Recompute every flag from raw text; all requests remain in the denominator."""
+    """Her başarı bayrağını ham metinden yeniden hesaplar; tüm istekler paydada kalır."""
     expected = {sample["id"]: sample for sample in samples}
     ids = [row["id"] for row in rows]
     if not samples or len(expected) != len(samples):
@@ -58,7 +58,7 @@ def analyze_results(samples, rows):
 
 
 def save_figure(summary, path):
-    """Plot the four rates on the same all-request denominator."""
+    """Dört oranı, tüm isteklerden oluşan ortak paydayla grafikte gösterir."""
     import matplotlib
     matplotlib.use("Agg")
     import matplotlib.pyplot as plt
@@ -79,7 +79,7 @@ def save_figure(summary, path):
 
 
 def main():
-    """Default to offline analysis. Fresh runs require a new results filename."""
+    """Varsayılan olarak çevrimdışı analiz yapar. Yeni çıkarım için yeni sonuç dosyası gerekir."""
     parser = argparse.ArgumentParser(description=__doc__)
     mode = parser.add_mutually_exclusive_group()
     mode.add_argument("--analyze", action="store_true", help="reanalyze saved responses (default)")
