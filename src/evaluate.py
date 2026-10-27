@@ -1,4 +1,10 @@
-"""Kayıtlı 200 yanıtı çevrimdışı analiz eder; açıkça istenirse yerel modelle yeni çıkarım yapar."""
+"""Kayıtlı 200 yanıtı çevrimdışı analiz eder; açıkça istenirse yerel modelle yeni çıkarım yapar.
+    python src/evaluate.py --analyze
+    
+    results/summary.json — Sayısal sonuçlar
+    results/figures/json_success.png — Sonuç grafiği
+    Türkçe teknik rapor — Yöntem ve değerlendirme
+"""
 
 import argparse
 import json
