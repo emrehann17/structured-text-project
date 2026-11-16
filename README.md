@@ -1,110 +1,228 @@
-# Proje I: Yapılandırılmış Metin Sınıflandırma ve Bilgi Çıkarımı
+# NLP Project I — Structured Turkish News
 
-Bu Python uygulaması, Türkçe haberleri yedi kategoriye ayırır ve kişi, kurum ve yer adlarını yapılandırılmış JSON biçiminde çıkarır. **Ollama** üzerinden yerel olarak çalışan açık kaynaklı **Qwen2.5:3b** modelini kullanır. Bulut LLM API’si, model eğitimi veya ince ayar (fine-tuning) kullanılmaz.
+A small Python pipeline calls local **Qwen2.5:3b through Ollama**, classifies TTC4900
+news, extracts names, preserves raw output, parses/cleans JSON and measures results.
+The November upgrade compares prompt-only with schema-constrained decoding and
+includes a real human entity-review workflow.
 
-Dersin gereklilikleri; şemayla sınırlandırılmış üretim, açık JSON temizleme ve `try-except` kullanımı, **kaydedilmiş 200 gerçek yanıtın** değerlendirilmesi, açıklamalı Python kodu, çevrimdışı testler ve kısa teknik raporla karşılanır. Raporun [Türkçe PDF](report/technical_report_tr.pdf) ve [Türkçe Markdown](report/technical_report_tr.md) kopyaları bulunur. Özgün [İngilizce PDF](report/technical_report.pdf) ve [İngilizce Markdown](report/technical_report.md) dosyaları da korunmuştur.
+**Submission is not complete:** entity gold needs human verification; the student
+must confirm the demo categories, record the English video and upload it Unlisted.
+Deadline: **22 November 2026, 23:59 Türkiye time**. The English report is the primary
+submission; the retained Turkish report is an older historical reference only.
 
-## Dosyalar
+## Install and model setup
 
-```text
- data/test_samples.jsonl                 Sabit veri kümesi: haberler ve referans kategoriler
- src/llm_pipeline.py                     İstem, yerel istek, ayrıştırma ve doğrulama
- src/evaluate.py                         Çevrimdışı analiz veya açıkça başlatılan yeni çıkarım
- results/optimized_schema_results.jsonl  Tamamlanmış çalışmanın değişmemiş özgün yanıtları
- results/summary.json                    Yeniden hesaplanan metrikler
- results/figures/json_success.png        Dört değerlendirme oranı
- report/technical_report.md              Özgün İngilizce rapor
- report/technical_report.pdf             Özgün İngilizce raporun PDF sürümü
- report/technical_report_tr.md           Türkçe rapor kopyası
- report/technical_report_tr.pdf          Türkçe raporun PDF sürümü
- report/figures/json_success_tr.png      Grafiğin Türkçe kopyası
- report/evidence.sha256                  Koruma amaçlı özetler; çalıştırma için gerekmez
- tests/test_pipeline.py                  Çevrimdışı birim ve bütünleştirme testleri
- README.md
- requirements.txt
- .gitignore
-```
-
-## Veri kümesi ve model
-
-Sabit TTC4900 seçkisi (`savasy/ttc4900`, train bölümü) 205 kayıttan oluşur: beş geliştirme kaydı ve **`samples[5:205]` dilimindeki 200 değerlendirme kaydı**. Kimlikler, metinler, sıralama ve referans etiketler korunmuştur. Seçimde 42 rastgelelik tohumu, 150–3000 karakter filtresi ve kategori kotaları kullanılmıştır: `dunya`, `ekonomi`, `kultur`, `saglik` için 29’ar; `siyaset`, `spor`, `teknoloji` için 28’er kayıt. Değerlendirmede **200 farklı kayıt kimliği, ancak 199 benzersiz metin** vardır; 2138 ve 2296 kimlikli kayıtlar aynı metni içerir. Hazır veri kümesi depoda bulunduğundan indirme veya hazırlama betiği gerekmez.
-
-Tamamlanmış çalışmada `qwen2.5:3b`, Ollama’nın `format` alanında JSON Schema, `build_prompt()` içindeki Türkçe istem ve aşağıdaki değişmemiş ayarlar kullanılmıştır:
-
-```python
-{"temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 384,
- "repeat_penalty": 1.2, "repeat_last_n": 128}
-```
-
-İstekler `http://localhost:11434/api/generate` adresine, `stream=False` ve `timeout=(5, 60)` ile gönderilir. Zaman aşımı değerleri sırasıyla bağlantı ve okuma beklemelerine uygulanır. Kaydedilmiş ortam bilgisi Ollama sürümünü `0.40.2` olarak belirtir; yeni bir kurulum veya model sürümü aynı çıktıları üretmeyebilir.
-
-## JSON çıktısı ve işlem akışı
-
-Çıktı yapısını gösteren örnek; ek bir deney sonucu değildir:
-
-```json
-{
-  "category": "spor",
-  "entities": {"person": [], "organization": [], "location": []}
-}
-```
-
-Haber → Türkçe istem → yerel Ollama → ham yanıt → `json.loads()` → gerekirse temizleme → şema doğrulama → referans kategoriyle karşılaştırma → sonucun kaydedilmesi.
-
-`parse_json_response()` önce doğrudan `json.loads(raw_output)` çağırır. `json.JSONDecodeError` oluşursa `clean_json_output()` çağrılır ve ayrıştırma yeniden denenir. Temizleyici, baştaki ve sondaki boşlukları ve Markdown kod çitlerini kaldırır; çevredeki açıklama metinlerini atlamak için ilk ayrıştırılabilir JSON nesnesini bulur. Eksik alan uydurmaz ve kesilmiş JSON’u tamamlamaz. Özgün kurtarma davranışı, kesilmiş metnin içindeki tamamlanmış bir iç nesneyi bulabilir; bu nesne yine de şema doğrulamasından geçmelidir.
-
-`validate_schema()` eksik veya fazla alanları, yedi etiket dışındaki kategorileri ve metin listesi olmayan varlık alanlarını reddeder. İstemde her liste için en fazla beş ad ve tekrarsızlık istenir; bunlar ek şema kuralları değil, istem talimatlarıdır. `evaluate_sample()` bağlantı, HTTP ve API yanıt gövdesi hatalarını kaydeder; sonraki örneğin işlenmesini sağlar. JSON sözdizimi başarısı ve sınıflandırma doğruluğu ayrı değerlendirilir.
-
-## Kurulum ve çevrimdışı analiz
-
-Python 3.10 veya üzerini kullanın. Depo kök dizininde:
+Run commands from the repository root. Python 3.12 was used locally.
 
 ```bash
-python3 -m venv .venv
-source .venv/bin/activate
+python3 -m venv venv
+source venv/bin/activate
 python -m pip install -r requirements.txt
-python src/evaluate.py --analyze
-python -m unittest discover -s tests -v
 ```
 
-Analiz ve testler için Ollama sunucusu veya model gerekmez. `python src/evaluate.py` komutu, parametre verilmediğinde de kayıtlı sonuçları analiz eder. Analiz, başarı bayraklarını ham metinden yeniden hesaplar, kimlikleri ve referans etiketleri denetler; yalnızca `results/summary.json` ile sonuç grafiğini günceller. Eksik veya yinelenen sonuç kimlikleri reddedilir. Ham yanıt dosyaları yeniden yazılmaz.
+Install Ollama using its [official Linux instructions](https://docs.ollama.com/linux)
+or the installer for your operating system. On Linux the documented install command is:
 
-## Yeni yerel çıkarım çalıştırma
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+ollama serve
+```
 
-Ollama’yı kurun ve yerel hizmetini başlatın; zaten çalışmıyorsa `ollama serve` kullanın. Ardından modeli indirip yeni çalışmayı açıkça başlatın:
+Keep the server running in another terminal; skip `ollama serve` if the service
+is already running. On a fresh installation fetch and inspect the model:
 
 ```bash
 ollama pull qwen2.5:3b
-python src/evaluate.py --run --results results/fresh_run.jsonl
+ollama list
+ollama show qwen2.5:3b
+ollama --version
+ollama ps
+python src/evaluate.py --env
 ```
 
-Bu komut yerel modele 200 istek gönderir. Çıktı dosyası önceden bulunmamalıdır; komut mevcut dosyanın üzerine yazmayı reddeder. Her sonuç hemen kaydedilir. Yeni özet ve grafik, bu dosyanın yanına yazılır; yayımlanmış sonuçlar korunur. Tamamlanmış yeni bir çalışmayı daha sonra analiz etmek için:
+Do not pull/update a model halfway through a controlled pair. `--env` captures the
+current environment and overwrites `results/environment.json`; run sidecars retain
+their own before/after evidence. The measured environment reports **Q4_K_M**, Ollama
+**0.40.2**, NVIDIA GeForce RTX 3050 Ti Laptop GPU (4096 MiB), and digest
+`357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b`.
+Quantization was read from the installed model, not inferred from its tag.
+
+## Data and experiment design
+
+The frozen [TTC4900 source](https://huggingface.co/datasets/savasy/ttc4900) selection
+has 205 records: first five development, next 200 historical evaluation. The 200
+contain 199 distinct texts. `data/evaluation_ids.json` fixes a balanced selection of
+100 distinct texts: scan in stored order, skip exact duplicate text, fill quotas
+of 15 dunya, 15 ekonomi and 14 in each remaining category. No model output is used
+for selection. Both modes and temperatures use these IDs in identical order.
+
+All new requests use Turkish prompt **v2**, temperature 0 (or explicitly 1), seed
+42, num_ctx 4096, num_predict 384, repeat_penalty 1.2, repeat_last_n 128, stream false.
+**top_k and top_p are not explicitly set**. v2 adds an explicit JSON output template
+to the original prompt because v1 did not expose the object structure to prompt-only
+mode; see [provenance](docs/UPGRADE_EVIDENCE.md). No other prompt tuning was done.
+
+- `mode=prompt`: asks for JSON in the prompt; **omits `format` entirely**.
+- `mode=schema`: adds `format=JSON_SCHEMA`; every other request field is identical.
+- Temperature experiment: same mode, prompt, model and options; only temperature changes.
+
+The required object is:
+
+```json
+{"category":"spor","entities":{"person":[],"organization":[],"location":[]}}
+```
+
+Categories: dunya, ekonomi, kultur, saglik, siyaset, spor, teknoloji. The schema
+requires these fields/types, an allowed category, and no extra keys. The prompt
+limits each entity list to five; the schema does not enforce semantic correctness.
+
+Pipeline: load source → build prompt/request → genuine local HTTP request → preserve
+raw response → direct `json.loads` → catch `JSONDecodeError` → clean fences/surrounding
+text → retry parse → validate structure → score → append JSONL. No missing facts or
+closing braces are invented. API errors are saved and later samples continue.
+
+## Reproduce the controlled experiments
+
+The committed `results/*.jsonl` files are evidence and cannot be overwritten.
+Use a new directory for a reproduction (choose another name if it already exists):
 
 ```bash
-python src/evaluate.py --analyze --results results/fresh_run.jsonl
+python src/evaluate.py --run --mode prompt --temperature 0 --results results/reproduction/prompt_only.jsonl
+python src/evaluate.py --run --mode schema --temperature 0 --results results/reproduction/schema_constrained.jsonl
+python src/evaluate.py --run --mode prompt --temperature 1 --results results/reproduction/prompt_only_temp1.jsonl
+python src/evaluate.py --run --mode schema --temperature 1 --results results/reproduction/schema_constrained_temp1.jsonl
+python src/evaluate.py --compare --directory results/reproduction
 ```
 
-Kesintiye uğrayan çalışmanın dosyası inceleme için saklanır; ancak tamamlanmamış çalışmalardan nihai metrik üretilmez. Baştan başlatmak için yeni bir dosya adı seçin. Testlerde istekler taklit edilir (mock); **sadeleştirme sırasında yeni model çıkarımı yapılmamıştır**.
+This performs **400 genuine requests**: 100 per condition. The temperature study
+uses all 100 texts because local inference is practical. No automatic retries
+replace failures. If a process is interrupted, repeat its exact command with
+`--resume`; it verifies the saved ID prefix, source/prompt hashes, options, digest
+and environment before appending. Only metadata status `running` may resume.
+Truncated/corrupt files fail loudly; preserve them and use a new directory.
 
-## Ölçülen sonuçlar
+To reanalyze the committed controlled results without inference:
 
-Aşağıdaki değerler yeni bir deneyden değil, mevcut tamamlanmış çalışmanın yeniden analizinden elde edilmiştir. Özgün yanıt dosyasının adı ve baytları korunmuştur.
+```bash
+python src/evaluate.py --compare
+python src/evaluate.py --analyze --results results/prompt_only.jsonl
+```
 
-| Metrik | Başarılı / tüm istekler | Oran |
-|---|---:|---:|
-| İlk denemede JSON ayrıştırma | 200 / 200 | **%100** |
-| Temizleme sonrası JSON ayrıştırma | 200 / 200 | %100 |
-| Şema geçerliliği | 200 / 200 | %100 |
-| Sınıflandırma doğruluğu | 107 / 200 | **%53,5** |
+Comparison validates complete matching ID order, duplicates/missing results,
+model digest, quantization, prompt/schema hashes, hardware/software fingerprint,
+mode and options. Missing/incomplete runs have explicit pending status. It writes
+`comparison.json`, `temperature_comparison.json`, and `figures/mode_temperature_comparison.png`
+inside the compared directory. JSONL rows retain original raw text, predictions,
+entities, parse/schema/correctness flags, API error, timing and provenance.
 
-200 isteğin tamamına yanıt alınmıştır; API hatası sayısı **0**’dır. Kaydedilen toplam süre **241,83 saniye**, kayıt başına ortalama süre **1,21 saniye**dir. Bu süre, isteğin yanıtını beklemeyi ve yerel ayrıştırmayı kapsar; çevrimdışı analiz çıkarım süresini yeniden ölçmez.
+All four rates divide by **all requests**, including API and structural failures.
+Post-cleaning parsing includes directly parsed responses. Classification accuracy
+requires a schema-valid category equal to its reference label. Entity precision,
+recall and micro/per-type F1 use normalized exact matching with type preserved;
+invalid outputs have no predicted entities. An unavailable F1 is never plotted as zero.
 
-Her oran `başarılı_sayısı / toplam_istek_sayısı * 100` ile hesaplanır. API, ayrıştırma ve şema hataları paydada kalır. İlk deneme başarısı, modelin değiştirilmemiş metninin temizleme öncesinde ayrıştırılabilmesidir. Temizleme sonrası metrik, doğrudan başarılı yanıtları ve kurtarılan yanıtları birlikte içerir; **bu çalışmada hiçbir yanıtın kurtarılması gerekmemiştir**. Sınıflandırma, ancak şema doğrulaması başarılıysa ve tahmin referans etiketle aynıysa doğru sayılır.
+## Measured November results
 
-![200 kayıt için değerlendirme oranları](report/figures/json_success_tr.png)
+Each row uses the same 100 selected texts; there were zero API errors in all four runs.
 
-## Sınırlılıklar ve korunan kanıtlar
+| Mode | Temperature | Raw JSON | After cleaning | Schema | Accuracy | Entity F1 |
+|---|---:|---:|---:|---:|---:|---|
+| Prompt-only | 0 | 96% | 99% | 98% | 48% | PENDING HUMAN REVIEW |
+| Schema | 0 | 100% | 100% | 100% | 50% | PENDING HUMAN REVIEW |
+| Prompt-only | 1 | 75% | 99% | 99% | 54% | PENDING HUMAN REVIEW |
+| Schema | 1 | 100% | 100% | 100% | 52% | PENDING HUMAN REVIEW |
 
-Geçerli JSON, doğru sınıflandırmayı veya varlıkların gerçekliğini garanti etmez. Varlık çıkarımı yapılmıştır; ancak elle etiketlenmiş varlık referansları kullanılmadığından anlamsal varlık doğruluğu ve halüsinasyon tespiti değerlendirilmemiştir. Tekrarlanan bir metin, değerlendirme çeşitliliğini bir miktar azaltır. Bulgular bu veri kümesi ve yapılandırma için geçerlidir.
+At T=0 the 98 outputs valid in both modes have identical categories. Schema's
++2 points come from IDs 4811 (prompt category `tekno`, outside the enum) and 2379
+(prompt output has invalid escape sequences). This is an end-to-end reliability
+gain, not evidence of better category choices among mutually valid outputs.
+Entity semantic accuracy remains unknown until human review. Raising temperature
+reduced prompt-only raw parsing but improved its classification in this run;
+no universal temperature effect is claimed.
 
-Sadeleştirme öncesindeki tüm kod ve Git ile izlenen deneyler, [`backup/pre-simplification`](https://github.com/emrehann17/structured-text-project/tree/backup/pre-simplification) dalındaki `f970b0c9bbb622d8e5a6d3ccf5fe4aea90aca7cb` commit’inde korunur. [SHA-256 kayıtları](report/evidence.sha256), değişmemiş veri kümesini ve tüm özgün model yanıt dosyalarını kapsar; geçmiş yanıt dosyaları bu dalda denetlenebilir. Bu özetler koruma kanıtıdır; günlük çalıştırma akışının bir adımı değildir.
+## Human entity review and F1
+
+```bash
+python src/annotate_entities.py --status
+python src/annotate_entities.py --reviewer "Your real name"
+python src/annotate_entities.py --reviewer "Your real name" --id 4000
+python src/evaluate.py --compare
+python src/build_report.py
+```
+
+Read [annotation rules](docs/ANNOTATION_GUIDELINES.md) first. Initial suggestions
+come from historical model predictions and are **not gold**. The helper displays
+full original text; Enter keeps a list, `-` empties it, semicolons separate names,
+and `|` joins aliases. Only the human's explicit `y` verifies a record. Progress
+is saved per reviewed record. Review all 100 texts, correct wrong types and check
+omissions. Retain the first five distinct mentions of each type. The scorer handles
+Turkish İ/I casing, Unicode normalization, whitespace, aliases and duplicates.
+F1 stays **PENDING HUMAN REVIEW** until every selected record is verified.
+
+## Live video demo
+
+Five newly authored fictional Turkish stories are separate from TTC4900; novelty
+is checked against all 205 records and the other demo texts. This establishes local
+novelty, not absence from a model's pretraining data. The sports-finance story is
+intentionally ambiguous. Its error is not guaranteed. Read and manually confirm
+or correct `true_category` for each demo record; then set `category_review_status`
+to `verified` and add reviewer/time fields. Until then comparisons are draft.
+
+```bash
+python src/demo.py --check
+python src/demo.py --mode both --temperatures 0 1 --output results/video_take1.jsonl
+python src/demo.py --defense --output results/defense_take1.jsonl
+```
+
+The first live command sends 20 real requests: five texts × two modes × two
+temperatures. Raw text, parsing, schema validity, prediction, entities and expected
+categories appear on screen. No mock/replay option exists. A1 makes two real
+requests before/after removing the format assignment in a temporary source copy;
+repository code remains intact. Use a fresh output filename for another take.
+[English video preparation](docs/VIDEO_PREPARATION.md) covers code lines, ten defense
+questions, live order, recording requirements and chapters. These are speaking
+notes, not a script to read aloud.
+
+## Tests and English report
+
+```bash
+python -m unittest discover -s tests -v
+python src/build_report.py
+```
+
+Tests are offline and mock HTTP only inside tests. They cover both request bodies,
+temperature, parsing/cleaning, errors, schema, denominators, Turkish entities, review
+enforcement, paired provenance, preservation and demo novelty/live-call routing.
+The report builder recalculates metrics from saved raw responses and generates
+`report/technical_report.md` and `report/technical_report.pdf` using ReportLab.
+It refuses a report over four pages. Visually inspect all PDF pages, especially
+after completing gold review; the current PDF is explicitly a draft while F1 is pending.
+
+## Evidence and structure
+
+Historical results are the frozen `optimized_schema_results.jsonl` and original
+`summary.json`: 200/200 raw JSON, 200/200 schema, 107/200 classifications (53.5%),
+zero API errors. **These are not new comparison results.** New measured results
+are in `comparison.json` and `temperature_comparison.json`; each new run has a
+metadata sidecar with before/after environment evidence. Earlier partial upgrade
+outputs in `prior_upgrade/` are excluded. Never combine different configurations.
+
+```text
+data/    test_samples.jsonl, evaluation_ids.json, entity_gold.jsonl, demo_samples.jsonl
+src/     llm_pipeline.py, evaluate.py, annotate_entities.py, demo.py, build_report.py
+results/ historical evidence, four new runs + sidecars, comparisons, figures,
+         environment.json, prior_upgrade/, dev_checks/
+report/  technical_report.md, technical_report.pdf, historical Turkish reference
+docs/   ANNOTATION_GUIDELINES.md, VIDEO_PREPARATION.md, UPGRADE_EVIDENCE.md
+tests/   test_pipeline.py, test_upgrade.py
+```
+
+The original dataset and 200 responses are SHA-256 protected in tests.
+`backup/pre-simplification` remains intact; `backup/pre-nov2026-upgrade-20261116`
+protects main before this upgrade. No history rewrite or force-push is used.
+
+Limitations: single seed, small balanced selection, exact matching and five-name
+cap, model-suggested annotation bias, label-taxonomy ambiguity, possible pretraining
+overlap and hardware/software nondeterminism. Human gold review, manual demo-label
+confirmation, the final English screen/voice recording (face at beginning), and
+Unlisted YouTube upload with actual chapter timestamps remain required.

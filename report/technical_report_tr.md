@@ -1,3 +1,5 @@
+> Tarihsel Türkçe başvuru kopyasıdır. Kasım 2026 teslimi için güncel İngilizce `technical_report.md` ve `technical_report.pdf` kullanılmalıdır.
+
 # Yapılandırılmış Metin Sınıflandırma ve Bilgi Çıkarımı
 
 **Doğal Dil İşleme Projesi I — Teknik Rapor (Türkçe Kopya)**

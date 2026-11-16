@@ -1,0 +1,37 @@
+{
+  "ollama_version": "0.40.2",
+  "model": "qwen2.5:3b",
+  "model_digest": "357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b",
+  "details": {
+    "parent_model": "",
+    "format": "gguf",
+    "family": "qwen2",
+    "families": [
+      "qwen2"
+    ],
+    "parameter_size": "3.1B",
+    "quantization_level": "Q4_K_M"
+  },
+  "parameter_count": 3085938688,
+  "base_model": "https://huggingface.co/Qwen/Qwen2.5-3B",
+  "loaded_models": [
+    {
+      "name": "qwen2.5:3b",
+      "size": 2159374499,
+      "size_vram": 2159374499,
+      "context_length": 4096
+    }
+  ],
+  "generation_options": {
+    "temperature": 0,
+    "seed": 42,
+    "num_ctx": 4096,
+    "num_predict": 384,
+    "repeat_penalty": 1.2,
+    "repeat_last_n": 128
+  },
+  "top_k_top_p": "not explicitly set (Ollama/model defaults)",
+  "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+  "python": "3.12.3",
+  "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB"
+}

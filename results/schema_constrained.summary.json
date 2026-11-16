@@ -1,0 +1,35 @@
+{
+  "total_requests": 100,
+  "responses_received": 100,
+  "api_errors": 0,
+  "mode": "schema",
+  "temperature": 0,
+  "options": {
+    "temperature": 0,
+    "seed": 42,
+    "num_ctx": 4096,
+    "num_predict": 384,
+    "repeat_penalty": 1.2,
+    "repeat_last_n": 128
+  },
+  "prompt_version": "v2",
+  "denominator": "all requests (API, parsing and schema failures included)",
+  "raw_json_success_count": 100,
+  "raw_json_success_pct": 100.0,
+  "clean_json_success_count": 100,
+  "clean_json_success_pct": 100.0,
+  "schema_success_count": 100,
+  "schema_success_pct": 100.0,
+  "classification_accuracy_count": 50,
+  "classification_accuracy_pct": 50.0,
+  "total_measured_seconds": 93.49,
+  "average_measured_seconds": 0.93,
+  "entity_gold": {
+    "selected": 100,
+    "verified": 0,
+    "complete": false
+  },
+  "entity_f1": "PENDING HUMAN REVIEW",
+  "source_results": "results/schema_constrained.jsonl",
+  "analysis": "Recomputed from saved raw responses; timing comes from saved measurements"
+}

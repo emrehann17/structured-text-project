@@ -181,7 +181,7 @@ class EvaluationTests(unittest.TestCase):
             path = Path(directory) / "saved.jsonl"
             path.write_bytes(evaluate.RESULT_PATH.read_bytes())
             before = path.read_bytes()
-            with patch.object(sys, "argv", ["evaluate.py", "--results", str(path)]), \
+            with patch.object(sys, "argv", ["evaluate.py", "--results", str(path), "--samples", "all"]), \
                  patch.object(pipeline.requests, "post", side_effect=AssertionError("No network")) as post, \
                  patch.object(evaluate, "save_figure"), redirect_stdout(StringIO()):
                 evaluate.main()
@@ -200,8 +200,10 @@ class EvaluationTests(unittest.TestCase):
     def test_run_continues_after_api_failures_mocked(self):
         with TemporaryDirectory() as directory:
             path = Path(directory) / "fresh.jsonl"
-            with patch.object(sys, "argv", ["evaluate.py", "--run", "--results", str(path)]), \
+            with patch.object(sys, "argv", ["evaluate.py", "--run", "--results", str(path), "--samples", "all"]), \
                  patch.object(pipeline.requests, "post", side_effect=pipeline.requests.ConnectionError("offline")) as post, \
+                 patch.object(evaluate, "capture_environment", return_value={"model_digest": "test", "details": {"quantization_level": "test"}}), \
+                 patch.object(evaluate, "environment_fingerprint", return_value="test-only"), \
                  patch.object(evaluate, "save_figure"), redirect_stdout(StringIO()):
                 evaluate.main()
             self.assertEqual(post.call_count, 200)

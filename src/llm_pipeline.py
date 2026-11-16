@@ -1,6 +1,14 @@
-"""Yerel haber sınıflandırması: tamamlanmış çalışmanın istemi ve üretim ayarları korunmuştur."""
+"""Yerel haber sınıflandırması ve varlık çıkarımı (Qwen2.5:3b, Ollama).
+
+İki deney ayarı vardır ve aralarındaki TEK fark Ollama `format` alanıdır:
+    mode="prompt"  -> JSON yalnızca istemde istenir; istekte `format` anahtarı HİÇ yoktur.
+    mode="schema"  -> istek gövdesine `format=JSON_SCHEMA` eklenir.
+Model, istem, sıcaklık, tohum, bağlam uzunluğu ve üretim sınırı iki ayarda aynıdır.
+"""
 
 import json
+import hashlib
+import math
 import re
 import time
 
@@ -10,10 +18,15 @@ MODEL = "qwen2.5:3b"
 OLLAMA_URL = "http://localhost:11434/api/generate"
 CATEGORIES = {"dunya", "ekonomi", "kultur", "saglik", "siyaset", "spor", "teknoloji"}
 ENTITY_TYPES = {"person", "organization", "location"}
+MODES = ("prompt", "schema")
+# Tamamlanmış (tarihsel) çalışmanın ayarları; yeni deneylerde yalnızca temperature değiştirilebilir.
+# top_k ve top_p açıkça ayarlanmaz (Ollama/model varsayılanları kullanılır).
 OPTIONS = {
     "temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 384,
     "repeat_penalty": 1.2, "repeat_last_n": 128,
 }
+# v1: tarihsel 200 yanıtın istemi. v2: v1 + açık JSON çıktı şablonu (iki modda da aynı).
+PROMPT_VERSION = "v2"
 
 JSON_SCHEMA = {
     "type": "object",
@@ -34,9 +47,19 @@ JSON_SCHEMA = {
     "additionalProperties": False,
 }
 
+# v2 eki: format parametresi olmadan model anahtar adlarını bilemez (5 geliştirme kaydında
+# v1 istemi format olmadan 5/5 şema hatası verdi; bkz. results/dev_checks/).
+OUTPUT_FORMAT_BLOCK = """
+ÇIKTI BİÇİMİ (yalnızca bu yapıda tek bir JSON nesnesi döndür):
+{"category": "<kategori>", "entities": {"person": [], "organization": [], "location": []}}
+"""
 
-def build_prompt(text):
-    """Haberi, boşluk düzenini koruyarak özgün Türkçe isteme yerleştirir."""
+
+def build_prompt(text, prompt_version=PROMPT_VERSION):
+    """Haberi Türkçe isteme yerleştirir. v1 tarihsel istemle bayt bayt aynıdır."""
+    if prompt_version not in ("v1", "v2"):
+        raise ValueError(f"Unknown prompt version: {prompt_version}")
+    output_format = OUTPUT_FORMAT_BLOCK if prompt_version == "v2" else ""
     return f"""
 Türkçe haberleri analiz eden bir bilgi çıkarma sistemisin.
 
@@ -63,20 +86,44 @@ KESİN KURALLAR:
 - Gereksiz açıklama yazma.
 - Boş entity listeleri için [] kullan.
 - Yalnızca JSON şemasına uygun çıktı üret.
-
+{output_format}
 HABER:
 {text}
 """
 
 
-def call_ollama(text):
-    """Yalnızca yerel sunucudan, parçalara bölünmeden dönen tek bir yanıt ister."""
-    response = requests.post(
-        OLLAMA_URL,
-        json={"model": MODEL, "prompt": build_prompt(text), "stream": False,
-              "format": JSON_SCHEMA, "options": OPTIONS},
-        timeout=(5, 60),
-    )
+def build_options(temperature=0):
+    """Sabit üretim ayarlarını kopyalar; deneyler arasında yalnızca sıcaklık değişir."""
+    if not math.isfinite(temperature) or temperature < 0:
+        raise ValueError("temperature must be finite and nonnegative")
+    return dict(OPTIONS, temperature=temperature)
+
+
+def fingerprint(value):
+    """Stable SHA-256 for text or a JSON configuration."""
+    text = value if isinstance(value, str) else json.dumps(value, sort_keys=True, ensure_ascii=False)
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def build_request(text, mode="schema", temperature=0):
+    """Ollama istek gövdesi. Prompt-only modunda `format` anahtarı tamamen çıkarılır."""
+    if mode not in MODES:
+        raise ValueError(f"mode must be one of {MODES}, got {mode!r}")
+    request_body = {
+        "model": MODEL,
+        "prompt": build_prompt(text),
+        "stream": False,
+        "options": build_options(temperature),
+    }
+    if mode == "schema":
+        request_body["format"] = JSON_SCHEMA
+    return request_body
+
+
+def call_ollama(text, mode="schema", temperature=0):
+    """Yerel sunucudan, parçalara bölünmeden dönen tek bir yanıt ister."""
+    response = requests.post(OLLAMA_URL, json=build_request(text, mode, temperature),
+                             timeout=(5, 60))
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict) or not isinstance(payload.get("response"), str):
@@ -85,7 +132,7 @@ def call_ollama(text):
 
 
 def clean_json_output(raw_output):
-    """Tamamlanmış çalışmanın kurtarma kurallarıyla kod çitlerini ve açıklamaları kaldırır.
+    """Kod çitlerini ve çevredeki açıklamaları kaldırır.
 
     İlk ayrıştırılabilir nesneyi korur; eksik süslü parantez veya alan eklemez.
     Kesilmiş girdiden kurtarılan bir parça da şema doğrulamasından geçmelidir.
@@ -107,13 +154,13 @@ def clean_json_output(raw_output):
                 return cleaned[index:index + end]
             except json.JSONDecodeError:
                 continue
-    return cleaned  # Let the caller record failure if recovery was impossible.
+    return cleaned  # Kurtarma imkânsızsa hatayı çağıran kaydeder.
 
 
 def parse_json_response(raw_output):
-    """(Ayrıştırılan değer, ilk deneme başarısı, kurtarma sonrası başarı) döndürür."""
+    """(Ayrıştırılan değer, ilk deneme başarısı, temizleme sonrası başarı) döndürür."""
     try:
-        parsed = json.loads(raw_output)  # No strip, cleaning or repair first.
+        parsed = json.loads(raw_output)  # Önce hiçbir temizleme yapılmadan.
         return parsed, True, True
     except json.JSONDecodeError:
         cleaned = clean_json_output(raw_output)
@@ -138,7 +185,10 @@ def validate_schema(obj):
 
 
 def evaluate_response(raw_output, true_category=None):
-    """Model metnini HTTP sürecinden ve kayıtlı başarı bayraklarından bağımsız değerlendirir."""
+    """Model metnini HTTP sürecinden ve kayıtlı bayraklardan bağımsız değerlendirir.
+
+    Tahmin ve varlıklar yalnızca şema geçerliyse kullanılır; geçersiz çıktı onarılmaz.
+    """
     parsed, raw_ok, clean_ok = parse_json_response(raw_output)
     schema_ok = clean_ok and validate_schema(parsed)
     return {
@@ -146,24 +196,35 @@ def evaluate_response(raw_output, true_category=None):
         "clean_json_valid": clean_ok,
         "schema_valid": schema_ok,
         "category_correct": bool(schema_ok and parsed["category"] == true_category),
+        "predicted_category": parsed["category"] if schema_ok else None,
+        "entities": parsed["entities"] if schema_ok else None,
     }
 
 
-def evaluate_sample(sample):
+def evaluate_sample(sample, mode="schema", temperature=0):
     """Tek istek yapar; değerlendirme sürebilsin diye API ve biçim hatalarını kaydeder."""
+    request_body = build_request(sample["text"], mode, temperature)  # Geçersiz mod burada durur.
     result = {
         "id": sample["id"], "true_category": sample.get("true_category"),
+        "mode": mode, "temperature": temperature, "model": MODEL,
+        "prompt_version": PROMPT_VERSION, "format_sent": "format" in request_body,
+        "options": request_body["options"],
+        "prompt_sha256": fingerprint(build_prompt("")),
+        "schema_sha256": fingerprint(JSON_SCHEMA),
+        "text_sha256": fingerprint(sample["text"]),
         "raw_json_valid": False, "clean_json_valid": False,
         "schema_valid": False, "category_correct": False,
+        "predicted_category": None, "entities": None,
         "response_received": False, "api_error": None,
         "raw_output": None, "elapsed_seconds": 0,
     }
     start = time.perf_counter()
     try:
-        payload = call_ollama(sample["text"])
+        payload = call_ollama(sample["text"], mode, temperature)
         result.update(response_received=True, raw_output=payload["response"],
                       done_reason=payload.get("done_reason"),
-                      eval_count=payload.get("eval_count"))
+                      eval_count=payload.get("eval_count"),
+                      prompt_eval_count=payload.get("prompt_eval_count"))
         result.update(evaluate_response(payload["response"], sample.get("true_category")))
     except (requests.RequestException, ValueError, KeyError) as error:
         result["api_error"] = str(error)

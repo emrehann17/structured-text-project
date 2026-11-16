@@ -1,0 +1,98 @@
+{
+  "samples": 100,
+  "evaluation_ids": "data/evaluation_ids.json",
+  "controlled_difference": "presence of Ollama format=JSON_SCHEMA only",
+  "prompt_only": {
+    "total_requests": 100,
+    "responses_received": 100,
+    "api_errors": 0,
+    "mode": "prompt",
+    "temperature": 0,
+    "options": {
+      "temperature": 0,
+      "seed": 42,
+      "num_ctx": 4096,
+      "num_predict": 384,
+      "repeat_penalty": 1.2,
+      "repeat_last_n": 128
+    },
+    "prompt_version": "v2",
+    "denominator": "all requests (API, parsing and schema failures included)",
+    "raw_json_success_count": 96,
+    "raw_json_success_pct": 96.0,
+    "clean_json_success_count": 99,
+    "clean_json_success_pct": 99.0,
+    "schema_success_count": 98,
+    "schema_success_pct": 98.0,
+    "classification_accuracy_count": 48,
+    "classification_accuracy_pct": 48.0,
+    "total_measured_seconds": 112.43,
+    "average_measured_seconds": 1.12,
+    "entity_gold": {
+      "selected": 100,
+      "verified": 0,
+      "complete": false
+    },
+    "entity_f1": "PENDING HUMAN REVIEW",
+    "source_results": "results/prompt_only.jsonl",
+    "failures": {
+      "api_error": 0,
+      "not_parseable": 1,
+      "invalid_category": 1,
+      "wrong_structure": 0,
+      "recovered_by_cleaning": 3
+    }
+  },
+  "schema_constrained": {
+    "total_requests": 100,
+    "responses_received": 100,
+    "api_errors": 0,
+    "mode": "schema",
+    "temperature": 0,
+    "options": {
+      "temperature": 0,
+      "seed": 42,
+      "num_ctx": 4096,
+      "num_predict": 384,
+      "repeat_penalty": 1.2,
+      "repeat_last_n": 128
+    },
+    "prompt_version": "v2",
+    "denominator": "all requests (API, parsing and schema failures included)",
+    "raw_json_success_count": 100,
+    "raw_json_success_pct": 100.0,
+    "clean_json_success_count": 100,
+    "clean_json_success_pct": 100.0,
+    "schema_success_count": 100,
+    "schema_success_pct": 100.0,
+    "classification_accuracy_count": 50,
+    "classification_accuracy_pct": 50.0,
+    "total_measured_seconds": 93.49,
+    "average_measured_seconds": 0.93,
+    "entity_gold": {
+      "selected": 100,
+      "verified": 0,
+      "complete": false
+    },
+    "entity_f1": "PENDING HUMAN REVIEW",
+    "source_results": "results/schema_constrained.jsonl",
+    "failures": {
+      "api_error": 0,
+      "not_parseable": 0,
+      "invalid_category": 0,
+      "wrong_structure": 0,
+      "recovered_by_cleaning": 0
+    }
+  },
+  "paired_classification": {
+    "both_correct": 48,
+    "only_first_correct": 0,
+    "only_second_correct": 2,
+    "both_wrong": 50,
+    "same_prediction": 98,
+    "both_schema_valid": 98,
+    "different_prediction_when_both_valid": 0,
+    "first": "prompt_only",
+    "second": "schema_constrained"
+  }
+}
