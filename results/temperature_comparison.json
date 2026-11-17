@@ -30,10 +30,43 @@
       "average_measured_seconds": 1.12,
       "entity_gold": {
         "selected": 100,
-        "verified": 0,
-        "complete": false
+        "verified": 100,
+        "complete": true
       },
-      "entity_f1": "PENDING HUMAN REVIEW",
+      "entity_f1": {
+        "location": {
+          "tp": 5,
+          "fp": 10,
+          "fn": 184,
+          "precision_pct": 33.33,
+          "recall_pct": 2.65,
+          "f1_pct": 4.9
+        },
+        "organization": {
+          "tp": 34,
+          "fp": 42,
+          "fn": 204,
+          "precision_pct": 44.74,
+          "recall_pct": 14.29,
+          "f1_pct": 21.66
+        },
+        "person": {
+          "tp": 64,
+          "fp": 57,
+          "fn": 142,
+          "precision_pct": 52.89,
+          "recall_pct": 31.07,
+          "f1_pct": 39.14
+        },
+        "micro": {
+          "tp": 103,
+          "fp": 109,
+          "fn": 530,
+          "precision_pct": 48.58,
+          "recall_pct": 16.27,
+          "f1_pct": 24.38
+        }
+      },
       "source_results": "results/prompt_only.jsonl",
       "failures": {
         "api_error": 0,
@@ -71,10 +104,43 @@
       "average_measured_seconds": 0.93,
       "entity_gold": {
         "selected": 100,
-        "verified": 0,
-        "complete": false
+        "verified": 100,
+        "complete": true
       },
-      "entity_f1": "PENDING HUMAN REVIEW",
+      "entity_f1": {
+        "location": {
+          "tp": 5,
+          "fp": 12,
+          "fn": 184,
+          "precision_pct": 29.41,
+          "recall_pct": 2.65,
+          "f1_pct": 4.85
+        },
+        "organization": {
+          "tp": 35,
+          "fp": 50,
+          "fn": 203,
+          "precision_pct": 41.18,
+          "recall_pct": 14.71,
+          "f1_pct": 21.67
+        },
+        "person": {
+          "tp": 65,
+          "fp": 63,
+          "fn": 141,
+          "precision_pct": 50.78,
+          "recall_pct": 31.55,
+          "f1_pct": 38.92
+        },
+        "micro": {
+          "tp": 105,
+          "fp": 125,
+          "fn": 528,
+          "precision_pct": 45.65,
+          "recall_pct": 16.59,
+          "f1_pct": 24.33
+        }
+      },
       "source_results": "results/schema_constrained.jsonl",
       "failures": {
         "api_error": 0,
@@ -112,10 +178,43 @@
       "average_measured_seconds": 1.26,
       "entity_gold": {
         "selected": 100,
-        "verified": 0,
-        "complete": false
+        "verified": 100,
+        "complete": true
       },
-      "entity_f1": "PENDING HUMAN REVIEW",
+      "entity_f1": {
+        "location": {
+          "tp": 2,
+          "fp": 12,
+          "fn": 187,
+          "precision_pct": 14.29,
+          "recall_pct": 1.06,
+          "f1_pct": 1.97
+        },
+        "organization": {
+          "tp": 28,
+          "fp": 48,
+          "fn": 210,
+          "precision_pct": 36.84,
+          "recall_pct": 11.76,
+          "f1_pct": 17.83
+        },
+        "person": {
+          "tp": 51,
+          "fp": 71,
+          "fn": 155,
+          "precision_pct": 41.8,
+          "recall_pct": 24.76,
+          "f1_pct": 31.1
+        },
+        "micro": {
+          "tp": 81,
+          "fp": 131,
+          "fn": 552,
+          "precision_pct": 38.21,
+          "recall_pct": 12.8,
+          "f1_pct": 19.17
+        }
+      },
       "source_results": "results/prompt_only_temp1.jsonl",
       "failures": {
         "api_error": 0,
@@ -153,10 +252,43 @@
       "average_measured_seconds": 0.97,
       "entity_gold": {
         "selected": 100,
-        "verified": 0,
-        "complete": false
+        "verified": 100,
+        "complete": true
       },
-      "entity_f1": "PENDING HUMAN REVIEW",
+      "entity_f1": {
+        "location": {
+          "tp": 6,
+          "fp": 25,
+          "fn": 183,
+          "precision_pct": 19.35,
+          "recall_pct": 3.17,
+          "f1_pct": 5.45
+        },
+        "organization": {
+          "tp": 27,
+          "fp": 44,
+          "fn": 211,
+          "precision_pct": 38.03,
+          "recall_pct": 11.34,
+          "f1_pct": 17.48
+        },
+        "person": {
+          "tp": 52,
+          "fp": 104,
+          "fn": 154,
+          "precision_pct": 33.33,
+          "recall_pct": 25.24,
+          "f1_pct": 28.73
+        },
+        "micro": {
+          "tp": 85,
+          "fp": 173,
+          "fn": 548,
+          "precision_pct": 32.95,
+          "recall_pct": 13.43,
+          "f1_pct": 19.08
+        }
+      },
       "source_results": "results/schema_constrained_temp1.jsonl",
       "failures": {
         "api_error": 0,

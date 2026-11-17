@@ -212,5 +212,125 @@ class UpgradeTests(unittest.TestCase):
         self.assertEqual(counts['only_second_correct'],1)
         self.assertEqual(counts['both_schema_valid'],0)
 
+    def test_second_pass_candidates_and_web_review_workflow(self):
+        samples = [
+            {'id': 4000, 'true_category': 'spor',
+             'text': 'Dario Saric, Anadolu Efes ve KK Zagreb ile Avrupa turunda.'},
+            {'id': 4001, 'true_category': 'spor', 'text': 'Ece Ankara turunda.'},
+            {'id': 4002, 'true_category': 'spor', 'text': 'Deniz, Test Kulübü ile İstanbul turunda.'},
+        ]
+        candidates = {
+            4000: {'person': ['dario saric | saric'],
+                   'organization': ['anadolu efes | efes', 'kk zagreb'], 'location': ['avrupa']},
+            4001: {'person': ['ece'], 'organization': [], 'location': ['ankara']},
+            4002: {'person': [], 'organization': [], 'location': ['istanbul']},
+        }
+        predictions = {4000: {'historical_v1': {
+            'person': ['Anadolu Efes'], 'organization': [], 'location': [],
+        }}}
+        unreviewed = gold(id=4000, status='candidate', reviewer=None, reviewed_at=None,
+                          text_sha256=p.fingerprint(samples[0]['text']))
+        # Human annotations deliberately differ from the candidate suggestions.
+        verified = gold(id=4002, person=['Deniz'], organization=['Test Kulübü'],
+                        location=['İstanbul'], text_sha256=p.fingerprint(samples[2]['text']),
+                        notes='Human corrections must survive preparation.', review_flags={})
+        verified_before = deepcopy(verified)
+
+        # All inputs and writes are isolated from production annotations and results.
+        with TemporaryDirectory() as directory, \
+             patch.object(annotation, 'load_samples', return_value=samples), \
+             patch.object(annotation, 'SECOND_PASS_CANDIDATES', candidates), \
+             patch.object(annotation, 'collect_existing_predictions', return_value=predictions), \
+             patch.object(annotation, 'RESULT_PATH', Path(directory) / 'results.jsonl'):
+            temp_gold = Path(directory) / 'entity_gold.jsonl'
+            annotation.RESULT_PATH.write_text('{}\n', encoding='utf-8')
+            annotation.save_gold([unreviewed, verified], temp_gold)
+
+            # Neither new nor existing unreviewed records may be auto-verified.
+            annotation.prepare_candidates(temp_gold)
+            gold_map = ev.load_gold(temp_gold)
+            self.assertEqual(set(gold_map), {4000, 4001, 4002})
+            self.assertEqual(gold_map[4002], verified_before)
+            for s in samples[:2]:
+                rec = gold_map[s['id']]
+                self.assertEqual(rec['status'], 'candidate')
+                self.assertIsNone(rec['reviewer'])
+                self.assertIsNone(rec['reviewed_at'])
+                self.assertEqual(rec['text_sha256'], p.fingerprint(s['text']))
+                ev.validate_gold_record(rec)
+                for kind in ('person', 'organization', 'location'):
+                    self.assertEqual(rec[kind], candidates[s['id']][kind])
+                    self.assertEqual(annotation.missing_from_text(rec[kind], s['text']), [])
+
+            rec_4000 = gold_map[4000]
+            self.assertIn('dario saric | saric', rec_4000['person'])
+            self.assertIn('anadolu efes | efes', rec_4000['organization'])
+            self.assertEqual(rec_4000['review_flags']['type_mismatches'], [{
+                'entity': 'Anadolu Efes', 'predicted_type': 'person', 'suggested_type': 'organization',
+            }])
+
+            app = annotation.AnnotationWebApp(gold_path=temp_gold)
+            state = app.get_state()
+            self.assertEqual(state['progress'], {'selected': 3, 'verified': 1, 'complete': False})
+            self.assertEqual(ev.load_gold(temp_gold), gold_map)
+
+            # Cannot verify without a real reviewer name
+            before_rejected = temp_gold.read_bytes()
+            with self.assertRaises(ValueError):
+                app.update_record({'id': 4000, 'action': 'verify', 'reviewer': '   '})
+            self.assertEqual(temp_gold.read_bytes(), before_rejected)
+            self.assertEqual(app.get_state(), state)
+
+            # Save draft keeps candidate status and deduplicates identical normalized entries
+            res_draft = app.update_record({
+                'id': 4000,
+                'action': 'save_draft',
+                'reviewer': 'Test Reviewer',  # A name alone is not explicit approval.
+                'person': ['dario saric | saric', 'dario_saric | saric'],  # duplicate prevented
+                'organization': ['anadolu efes | efes'],
+                'location': ['avrupa'],
+                'notes': 'Draft checked'
+            })
+            self.assertEqual(res_draft['record']['status'], 'candidate')
+            self.assertIsNone(res_draft['record']['reviewer'])
+            self.assertIsNone(res_draft['record']['reviewed_at'])
+            self.assertEqual(len(res_draft['record']['person']), 1)
+            self.assertEqual(res_draft['progress']['verified'], 1)
+            self.assertEqual(ev.load_gold(temp_gold)[4000], res_draft['record'])
+
+            # Explicit verify sets status='verified', reviewer, reviewed_at, and persists to disk
+            res_ver = app.update_record({
+                'id': 4000,
+                'action': 'verify',
+                'reviewer': 'Test Reviewer',
+                'person': ['dario saric | saric'],
+                'organization': ['anadolu efes | efes', 'kk zagreb'],
+                'location': ['avrupa'],
+            })
+            self.assertEqual(res_ver['record']['status'], 'verified')
+            self.assertEqual(res_ver['record']['reviewer'], 'Test Reviewer')
+            self.assertIsNotNone(res_ver['record']['reviewed_at'])
+            self.assertEqual(res_ver['record']['text_sha256'], p.fingerprint(samples[0]['text']))
+            self.assertEqual(res_ver['progress']['verified'], 2)
+            approved = deepcopy(res_ver['record'])
+            self.assertEqual(ev.load_gold(temp_gold)[4000], approved)
+
+            # Re-running prepare_candidates preserves already human-verified records
+            annotation.prepare_candidates(temp_gold)
+            reloaded = ev.load_gold(temp_gold)
+            self.assertEqual(reloaded[4000], approved)
+            self.assertEqual(reloaded[4002], verified_before)
+            self.assertEqual(reloaded[4001], gold_map[4001])
+
+            # Explicitly reopen only the test fixture approved above.
+            res_unver = app.update_record({'id': 4000, 'action': 'unverify'})
+            self.assertEqual(res_unver['record']['status'], 'candidate')
+            self.assertIsNone(res_unver['record']['reviewer'])
+            self.assertIsNone(res_unver['record']['reviewed_at'])
+            self.assertEqual(res_unver['progress']['verified'], 1)
+            reloaded = ev.load_gold(temp_gold)
+            self.assertEqual(reloaded[4000], res_unver['record'])
+            self.assertEqual(reloaded[4002], verified_before)
+
 
 if __name__=='__main__': unittest.main()

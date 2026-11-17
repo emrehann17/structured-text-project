@@ -2,7 +2,7 @@
 
 NLP Project I — November 2026 — English submission report
 
-**DRAFT — entity gold pending human review.** Human entity review: 0/100. Deadline: 22 November 2026, 23:59 Türkiye time.
+**Measured report — human gold verified.** Human entity review: 100/100. Deadline: 22 November 2026, 23:59 Türkiye time.
 
 ## 1. Introduction and objective
 
@@ -34,7 +34,7 @@ These tables are recomputed from the fresh saved responses, not from historical 
 | Parsing after cleaning | 99/100 (99%) | 100/100 (100%) |
 | Schema validity | 98/100 (98%) | 100/100 (100%) |
 | Classification accuracy | 48/100 (48%) | 50/100 (50%) |
-| Entity micro-F1 | PENDING HUMAN REVIEW | PENDING HUMAN REVIEW |
+| Entity micro-F1 | 24.38% | 24.33% |
 
 
 Schema decoding changed end-to-end classification accuracy by +2 percentage points on these 100 texts. Both modes were correct on 48, only prompt-only on 0, only schema on 2, and both wrong on 50. Predictions agreed on 98/100. Among 98 outputs valid in both modes, 0 category decisions differed. Separate usable-output gains from changed decisions; neither establishes a general semantic advantage.
@@ -59,13 +59,23 @@ At T=0 then T=1, prompt-only raw parsing was 96% then 75%, and accuracy was 48% 
 
 ## 5. Entity evaluation, discussion and limitations
 
-TTC4900 supplies class labels, not verified entity labels. data/entity_gold.jsonl contains historical-model suggestions explicitly marked candidate. The terminal helper displays the original text, lets a human edit every list, and saves verified status only after explicit confirmation with reviewer, timestamp and source hash. Current verification: **0/100**. No entity score is released until all selected gold records are verified. Suggestions can bias review; the reviewer must also check omissions.
+TTC4900 supplies class labels, not verified entity labels. data/entity_gold.jsonl contains historical-model suggestions explicitly marked candidate. The terminal helper displays the original text, lets a human edit every list, and saves verified status only after explicit confirmation with reviewer, timestamp and source hash. Current verification: **100/100**. No entity score is released until all selected gold records are verified. Suggestions can bias review; the reviewer must also check omissions.
 
 Match names by NFC-normalized exact equality, mapping Turkish İ to i and I to ı before lowercasing, replacing underscores with spaces and collapsing whitespace. Retain punctuation and entity type. Group explicit aliases into one gold entry; aliases must not overlap between gold entities. Deduplicate identical predictions and allow at most one prediction per gold entity. Wrong types count as FP and FN. Invalid outputs provide empty prediction sets. Per-type and micro scores use P=TP/(TP+FP), R=TP/(TP+FN), F1=2PR/(P+R); zero denominators give zero. Micro counts are summed over all texts and types before division.
 
 Gold uses the first five distinct supported entities per type in order of first mention, keeping aliases together. This matches the output cap, but the prompt does not specify which five; alternative valid choices can lower exact-match scores. Full annotation rules cover titles, institutions, geographic names, suffixes and overlaps in docs/ANNOTATION_GUIDELINES.md.
 
-Entity precision, recall and per-type/overall F1: PENDING HUMAN REVIEW.
+| Mode / type | Precision | Recall | F1 |
+|---|---:|---:|---:|
+| Prompt / location | 33.33% | 2.65% | 4.9% |
+| Prompt / organization | 44.74% | 14.29% | 21.66% |
+| Prompt / person | 52.89% | 31.07% | 39.14% |
+| Prompt / micro | 48.58% | 16.27% | 24.38% |
+| Schema / location | 29.41% | 2.65% | 4.85% |
+| Schema / organization | 41.18% | 14.71% | 21.67% |
+| Schema / person | 50.78% | 31.55% | 38.92% |
+| Schema / micro | 45.65% | 16.59% | 24.33% |
+
 
 Valid JSON does not prove semantic correctness. The saved predictions include sports/economy and international-politics boundary confusions; reference labels and the prompt taxonomy need not agree perfectly. Schema constraints restrict possible outputs but do not establish entity truth. Entity accuracy effects remain unknown until review is complete. A fixed seed does not remove runtime nondeterminism; temperature findings describe one realization per condition, not a universal trend. Quantization, software, hardware and prompt changes can affect reproducibility. Model pretraining overlap with TTC4900 is unknown.
 

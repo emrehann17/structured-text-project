@@ -9,13 +9,20 @@ it was suggested; read the complete source article and check every type.
 ## Workflow
 
 ```bash
+python src/annotate_entities.py --web
 python src/annotate_entities.py --status
 python src/annotate_entities.py --reviewer "Your real name"
 python src/annotate_entities.py --reviewer "Your real name" --id 4000
 python src/evaluate.py --compare
 ```
 
-The terminal shows the full original text (including its underscores). Enter
+`--web` launches a lightweight local browser interface (`http://127.0.0.1:8765`) that
+displays the full article with color-coded entity highlights, second-pass discrepancy
+flags, and one-click Accept & Verify, Edit, Move (`→Org`/`→Per`/`→Loc`), Remove, Next
+and Previous actions. No bulk-approve option exists; each record requires explicit
+inspection and confirmation.
+
+In terminal mode, the full original text (including its underscores) is shown. Enter
 keeps a list; `-` empties it; `name; another name` replaces it. `full name | alias`
 groups aliases of ONE entity. Only an explicit human `y` verifies a record.
 Ctrl-C stops with previously verified records saved; an unfinished record is not

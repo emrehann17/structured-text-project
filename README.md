@@ -143,6 +143,7 @@ no universal temperature effect is claimed.
 ## Human entity review and F1
 
 ```bash
+python src/annotate_entities.py --web
 python src/annotate_entities.py --status
 python src/annotate_entities.py --reviewer "Your real name"
 python src/annotate_entities.py --reviewer "Your real name" --id 4000
@@ -151,9 +152,11 @@ python src/build_report.py
 ```
 
 Read [annotation rules](docs/ANNOTATION_GUIDELINES.md) first. Initial suggestions
-come from historical model predictions and are **not gold**. The helper displays
-full original text; Enter keeps a list, `-` empties it, semicolons separate names,
-and `|` joins aliases. Only the human's explicit `y` verifies a record. Progress
+in `data/entity_gold.jsonl` have been audited in a second pass against all saved
+model predictions and the source text, but remain **unverified candidates** (`status="candidate"`).
+`--web` launches a fast local browser interface with highlighted entities, discrepancy
+flags, and one-click Accept/Edit/Remove/Move/Next/Previous actions. In terminal mode, Enter keeps a list, `-` empties it, semicolons separate names,
+and `|` joins aliases. Only the human's explicit confirmation verifies a record. Progress
 is saved per reviewed record. Review all 100 texts, correct wrong types and check
 omissions. Retain the first five distinct mentions of each type. The scorer handles
 Turkish İ/I casing, Unicode normalization, whitespace, aliases and duplicates.

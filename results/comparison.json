@@ -30,10 +30,43 @@
     "average_measured_seconds": 1.12,
     "entity_gold": {
       "selected": 100,
-      "verified": 0,
-      "complete": false
+      "verified": 100,
+      "complete": true
     },
-    "entity_f1": "PENDING HUMAN REVIEW",
+    "entity_f1": {
+      "location": {
+        "tp": 5,
+        "fp": 10,
+        "fn": 184,
+        "precision_pct": 33.33,
+        "recall_pct": 2.65,
+        "f1_pct": 4.9
+      },
+      "organization": {
+        "tp": 34,
+        "fp": 42,
+        "fn": 204,
+        "precision_pct": 44.74,
+        "recall_pct": 14.29,
+        "f1_pct": 21.66
+      },
+      "person": {
+        "tp": 64,
+        "fp": 57,
+        "fn": 142,
+        "precision_pct": 52.89,
+        "recall_pct": 31.07,
+        "f1_pct": 39.14
+      },
+      "micro": {
+        "tp": 103,
+        "fp": 109,
+        "fn": 530,
+        "precision_pct": 48.58,
+        "recall_pct": 16.27,
+        "f1_pct": 24.38
+      }
+    },
     "source_results": "results/prompt_only.jsonl",
     "failures": {
       "api_error": 0,
@@ -71,10 +104,43 @@
     "average_measured_seconds": 0.93,
     "entity_gold": {
       "selected": 100,
-      "verified": 0,
-      "complete": false
+      "verified": 100,
+      "complete": true
     },
-    "entity_f1": "PENDING HUMAN REVIEW",
+    "entity_f1": {
+      "location": {
+        "tp": 5,
+        "fp": 12,
+        "fn": 184,
+        "precision_pct": 29.41,
+        "recall_pct": 2.65,
+        "f1_pct": 4.85
+      },
+      "organization": {
+        "tp": 35,
+        "fp": 50,
+        "fn": 203,
+        "precision_pct": 41.18,
+        "recall_pct": 14.71,
+        "f1_pct": 21.67
+      },
+      "person": {
+        "tp": 65,
+        "fp": 63,
+        "fn": 141,
+        "precision_pct": 50.78,
+        "recall_pct": 31.55,
+        "f1_pct": 38.92
+      },
+      "micro": {
+        "tp": 105,
+        "fp": 125,
+        "fn": 528,
+        "precision_pct": 45.65,
+        "recall_pct": 16.59,
+        "f1_pct": 24.33
+      }
+    },
     "source_results": "results/schema_constrained.jsonl",
     "failures": {
       "api_error": 0,
