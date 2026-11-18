@@ -16,7 +16,5 @@ __pycache__/
 *.gguf
 *.safetensors
 
-# Historical local artifacts and optional fresh runs
-/legacy/
+# Local packages
 *.zip
-/results/fresh*

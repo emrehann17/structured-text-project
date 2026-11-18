@@ -1,0 +1,307 @@
+{
+  "gold_sha256": "6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a",
+  "entity_gold": {
+    "selected": 100,
+    "annotated": 100,
+    "complete": true
+  },
+  "runs": {
+    "prompt_only": {
+      "total_requests": 100,
+      "responses_received": 100,
+      "api_errors": 0,
+      "mode": "prompt",
+      "temperature": 0,
+      "options": {
+        "temperature": 0,
+        "seed": 42,
+        "num_ctx": 4096,
+        "num_predict": 1024,
+        "repeat_penalty": 1.2,
+        "repeat_last_n": 128,
+        "top_k": 40,
+        "top_p": 0.9,
+        "min_p": 0,
+        "presence_penalty": 0,
+        "frequency_penalty": 0
+      },
+      "prompt_version": "manual-study-v1",
+      "denominator": "all requests (API, parsing and schema failures included)",
+      "raw_json_success_count": 98,
+      "raw_json_success_pct": 98.0,
+      "clean_json_success_count": 100,
+      "clean_json_success_pct": 100.0,
+      "schema_success_count": 99,
+      "schema_success_pct": 99.0,
+      "classification_accuracy_count": 53,
+      "classification_accuracy_pct": 53.0,
+      "total_measured_seconds": 118.58,
+      "average_measured_seconds": 1.19,
+      "gold_sha256": "6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a",
+      "entity_gold": {
+        "selected": 100,
+        "annotated": 100,
+        "complete": true
+      },
+      "entity_f1": {
+        "location": {
+          "tp": 7,
+          "fp": 21,
+          "fn": 270,
+          "precision_pct": 25.0,
+          "recall_pct": 2.53,
+          "f1_pct": 4.59
+        },
+        "organization": {
+          "tp": 35,
+          "fp": 68,
+          "fn": 255,
+          "precision_pct": 33.98,
+          "recall_pct": 12.07,
+          "f1_pct": 17.81
+        },
+        "person": {
+          "tp": 109,
+          "fp": 96,
+          "fn": 183,
+          "precision_pct": 53.17,
+          "recall_pct": 37.33,
+          "f1_pct": 43.86
+        },
+        "micro": {
+          "tp": 151,
+          "fp": 185,
+          "fn": 708,
+          "precision_pct": 44.94,
+          "recall_pct": 17.58,
+          "f1_pct": 25.27
+        }
+      }
+    },
+    "schema_constrained": {
+      "total_requests": 100,
+      "responses_received": 100,
+      "api_errors": 0,
+      "mode": "schema",
+      "temperature": 0,
+      "options": {
+        "temperature": 0,
+        "seed": 42,
+        "num_ctx": 4096,
+        "num_predict": 1024,
+        "repeat_penalty": 1.2,
+        "repeat_last_n": 128,
+        "top_k": 40,
+        "top_p": 0.9,
+        "min_p": 0,
+        "presence_penalty": 0,
+        "frequency_penalty": 0
+      },
+      "prompt_version": "manual-study-v1",
+      "denominator": "all requests (API, parsing and schema failures included)",
+      "raw_json_success_count": 100,
+      "raw_json_success_pct": 100.0,
+      "clean_json_success_count": 100,
+      "clean_json_success_pct": 100.0,
+      "schema_success_count": 100,
+      "schema_success_pct": 100.0,
+      "classification_accuracy_count": 53,
+      "classification_accuracy_pct": 53.0,
+      "total_measured_seconds": 99.52,
+      "average_measured_seconds": 1.0,
+      "gold_sha256": "6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a",
+      "entity_gold": {
+        "selected": 100,
+        "annotated": 100,
+        "complete": true
+      },
+      "entity_f1": {
+        "location": {
+          "tp": 5,
+          "fp": 19,
+          "fn": 272,
+          "precision_pct": 20.83,
+          "recall_pct": 1.81,
+          "f1_pct": 3.32
+        },
+        "organization": {
+          "tp": 31,
+          "fp": 55,
+          "fn": 259,
+          "precision_pct": 36.05,
+          "recall_pct": 10.69,
+          "f1_pct": 16.49
+        },
+        "person": {
+          "tp": 106,
+          "fp": 106,
+          "fn": 186,
+          "precision_pct": 50.0,
+          "recall_pct": 36.3,
+          "f1_pct": 42.06
+        },
+        "micro": {
+          "tp": 142,
+          "fp": 180,
+          "fn": 717,
+          "precision_pct": 44.1,
+          "recall_pct": 16.53,
+          "f1_pct": 24.05
+        }
+      }
+    },
+    "prompt_only_temp1": {
+      "total_requests": 100,
+      "responses_received": 100,
+      "api_errors": 0,
+      "mode": "prompt",
+      "temperature": 1.0,
+      "options": {
+        "temperature": 1.0,
+        "seed": 42,
+        "num_ctx": 4096,
+        "num_predict": 1024,
+        "repeat_penalty": 1.2,
+        "repeat_last_n": 128,
+        "top_k": 40,
+        "top_p": 0.9,
+        "min_p": 0,
+        "presence_penalty": 0,
+        "frequency_penalty": 0
+      },
+      "prompt_version": "manual-study-v1",
+      "denominator": "all requests (API, parsing and schema failures included)",
+      "raw_json_success_count": 94,
+      "raw_json_success_pct": 94.0,
+      "clean_json_success_count": 100,
+      "clean_json_success_pct": 100.0,
+      "schema_success_count": 98,
+      "schema_success_pct": 98.0,
+      "classification_accuracy_count": 49,
+      "classification_accuracy_pct": 49.0,
+      "total_measured_seconds": 112.59,
+      "average_measured_seconds": 1.13,
+      "gold_sha256": "6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a",
+      "entity_gold": {
+        "selected": 100,
+        "annotated": 100,
+        "complete": true
+      },
+      "entity_f1": {
+        "location": {
+          "tp": 9,
+          "fp": 36,
+          "fn": 268,
+          "precision_pct": 20.0,
+          "recall_pct": 3.25,
+          "f1_pct": 5.59
+        },
+        "organization": {
+          "tp": 29,
+          "fp": 65,
+          "fn": 261,
+          "precision_pct": 30.85,
+          "recall_pct": 10.0,
+          "f1_pct": 15.1
+        },
+        "person": {
+          "tp": 67,
+          "fp": 112,
+          "fn": 225,
+          "precision_pct": 37.43,
+          "recall_pct": 22.95,
+          "f1_pct": 28.45
+        },
+        "micro": {
+          "tp": 105,
+          "fp": 213,
+          "fn": 754,
+          "precision_pct": 33.02,
+          "recall_pct": 12.22,
+          "f1_pct": 17.84
+        }
+      }
+    },
+    "schema_constrained_temp1": {
+      "total_requests": 100,
+      "responses_received": 100,
+      "api_errors": 0,
+      "mode": "schema",
+      "temperature": 1.0,
+      "options": {
+        "temperature": 1.0,
+        "seed": 42,
+        "num_ctx": 4096,
+        "num_predict": 1024,
+        "repeat_penalty": 1.2,
+        "repeat_last_n": 128,
+        "top_k": 40,
+        "top_p": 0.9,
+        "min_p": 0,
+        "presence_penalty": 0,
+        "frequency_penalty": 0
+      },
+      "prompt_version": "manual-study-v1",
+      "denominator": "all requests (API, parsing and schema failures included)",
+      "raw_json_success_count": 100,
+      "raw_json_success_pct": 100.0,
+      "clean_json_success_count": 100,
+      "clean_json_success_pct": 100.0,
+      "schema_success_count": 100,
+      "schema_success_pct": 100.0,
+      "classification_accuracy_count": 50,
+      "classification_accuracy_pct": 50.0,
+      "total_measured_seconds": 108.71,
+      "average_measured_seconds": 1.09,
+      "gold_sha256": "6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a",
+      "entity_gold": {
+        "selected": 100,
+        "annotated": 100,
+        "complete": true
+      },
+      "entity_f1": {
+        "location": {
+          "tp": 12,
+          "fp": 50,
+          "fn": 265,
+          "precision_pct": 19.35,
+          "recall_pct": 4.33,
+          "f1_pct": 7.08
+        },
+        "organization": {
+          "tp": 26,
+          "fp": 78,
+          "fn": 264,
+          "precision_pct": 25.0,
+          "recall_pct": 8.97,
+          "f1_pct": 13.2
+        },
+        "person": {
+          "tp": 65,
+          "fp": 123,
+          "fn": 227,
+          "precision_pct": 34.57,
+          "recall_pct": 22.26,
+          "f1_pct": 27.08
+        },
+        "micro": {
+          "tp": 103,
+          "fp": 251,
+          "fn": 756,
+          "precision_pct": 29.1,
+          "recall_pct": 11.99,
+          "f1_pct": 16.98
+        }
+      }
+    }
+  },
+  "paired_classification": {
+    "both_correct": 53,
+    "only_first_correct": 0,
+    "only_second_correct": 0,
+    "both_wrong": 47,
+    "same_prediction": 98,
+    "both_schema_valid": 99,
+    "different_prediction_when_both_valid": 1
+  }
+}

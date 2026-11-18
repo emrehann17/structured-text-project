@@ -19,14 +19,14 @@ OLLAMA_URL = "http://localhost:11434/api/generate"
 CATEGORIES = {"dunya", "ekonomi", "kultur", "saglik", "siyaset", "spor", "teknoloji"}
 ENTITY_TYPES = {"person", "organization", "location"}
 MODES = ("prompt", "schema")
-# Tamamlanmış (tarihsel) çalışmanın ayarları; yeni deneylerde yalnızca temperature değiştirilebilir.
-# top_k ve top_p açıkça ayarlanmaz (Ollama/model varsayılanları kullanılır).
+# İki modda da aynı açık üretim ayarları kullanılır.
 OPTIONS = {
-    "temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 384,
+    "temperature": 0, "seed": 42, "num_ctx": 4096, "num_predict": 1024,
     "repeat_penalty": 1.2, "repeat_last_n": 128,
+    "top_k": 40, "top_p": 0.9, "min_p": 0,
+    "presence_penalty": 0, "frequency_penalty": 0,
 }
-# v1: tarihsel 200 yanıtın istemi. v2: v1 + açık JSON çıktı şablonu (iki modda da aynı).
-PROMPT_VERSION = "v2"
+PROMPT_VERSION = "manual-study-v1"
 
 JSON_SCHEMA = {
     "type": "object",
@@ -47,19 +47,14 @@ JSON_SCHEMA = {
     "additionalProperties": False,
 }
 
-# v2 eki: format parametresi olmadan model anahtar adlarını bilemez (5 geliştirme kaydında
-# v1 istemi format olmadan 5/5 şema hatası verdi; bkz. results/dev_checks/).
 OUTPUT_FORMAT_BLOCK = """
 ÇIKTI BİÇİMİ (yalnızca bu yapıda tek bir JSON nesnesi döndür):
 {"category": "<kategori>", "entities": {"person": [], "organization": [], "location": []}}
 """
 
 
-def build_prompt(text, prompt_version=PROMPT_VERSION):
-    """Haberi Türkçe isteme yerleştirir. v1 tarihsel istemle bayt bayt aynıdır."""
-    if prompt_version not in ("v1", "v2"):
-        raise ValueError(f"Unknown prompt version: {prompt_version}")
-    output_format = OUTPUT_FORMAT_BLOCK if prompt_version == "v2" else ""
+def build_prompt(text):
+    """Aynı görev tanımını iki deney ayarı için de üretir."""
     return f"""
 Türkçe haberleri analiz eden bir bilgi çıkarma sistemisin.
 
@@ -79,14 +74,18 @@ GÖREV:
 4. location: Şehir, ülke ve coğrafi yerler.
 
 KESİN KURALLAR:
-- Her entity listesinde EN FAZLA 5 isim olsun.
+- Metindeki tüm kişi, kurum ve yer adlarını çıkar; isim sayısına sınır koyma.
 - Aynı ismi ASLA tekrar etme.
 - Metinde olmayan isimleri üretme.
 - Özel isimleri metindeki yazımıyla koru.
+- Unvanları ve çekim eklerini isme dahil etme; metindeki en uzun açık adı kullan.
+- Bir adın kısa ve uzun biçimi metinde ayrı ayrı geçiyorsa her farklı yazımı çıkar.
+- Ürün, etkinlik ve kurmaca karakter adlarını dahil etme.
+- Kulüp ve milli takım adları kurumdur; coğrafi anlamdaki ülkeler ve şehirler yerdir.
 - Gereksiz açıklama yazma.
 - Boş entity listeleri için [] kullan.
 - Yalnızca JSON şemasına uygun çıktı üret.
-{output_format}
+{OUTPUT_FORMAT_BLOCK}
 HABER:
 {text}
 """
@@ -123,7 +122,7 @@ def build_request(text, mode="schema", temperature=0):
 def call_ollama(text, mode="schema", temperature=0):
     """Yerel sunucudan, parçalara bölünmeden dönen tek bir yanıt ister."""
     response = requests.post(OLLAMA_URL, json=build_request(text, mode, temperature),
-                             timeout=(5, 60))
+                             timeout=(5, 300))
     response.raise_for_status()
     payload = response.json()
     if not isinstance(payload, dict) or not isinstance(payload.get("response"), str):

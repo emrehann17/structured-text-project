@@ -1,129 +1,137 @@
-"""Generate the English Markdown/PDF from saved real results; never performs inference."""
+"""Rebuild metrics, chart and report together from current raw outputs and manual gold."""
+import argparse
 import html
 import json
+from os.path import relpath
 from pathlib import Path
 import re
 
-from evaluate import ROOT, compare_runs, load_gold, gold_status, load_samples
+import llm_pipeline as pipeline
+from evaluate import ROOT, RUNS, compare_runs, load_gold
 
 
-def report_markdown(comparison, temperature):
-    env = json.loads((ROOT / 'results/environment.json').read_text(encoding='utf-8'))
-    a, b = comparison['prompt_only'], comparison['schema_constrained']
-    runs = temperature['runs']
-    progress = gold_status([s['id'] for s in load_samples()], load_gold())
-    pending = not progress['complete'] or any('total_requests' not in r for r in runs.values())
-    status = ('DRAFT — required experiments pending' if any('total_requests' not in r for r in runs.values()) else 'DRAFT — entity gold pending human review') if pending else 'Measured report — human gold verified'
-    metrics = [('Raw JSON parsing','raw_json_success'), ('Parsing after cleaning','clean_json_success'),
-               ('Schema validity','schema_success'), ('Classification accuracy','classification_accuracy')]
-    def value(run, key):
-        return (f"{run[key + '_count']}/{run['total_requests']} ({run[key + '_pct']:g}%)"
-                if 'total_requests' in run else 'PENDING RUN')
-    table = '| Metric | Prompt-only, T=0 | Schema, T=0 |\n|---|---:|---:|\n'
-    for label, key in metrics:
-        table += f'| {label} | {value(a,key)} | {value(b,key)} |\n'
-    def f1(run):
-        scores=run.get('entity_f1')
-        return f"{scores['micro']['f1_pct']:g}%" if isinstance(scores,dict) else 'PENDING HUMAN REVIEW'
-    table += f'| Entity micro-F1 | {f1(a)} | {f1(b)} |\n'
-    temp_table='| Mode, temperature | n | Raw JSON | Schema | Accuracy |\n|---|---:|---:|---:|---:|\n'
-    for name, run in runs.items():
-        label=('Prompt' if name.startswith('prompt') else 'Schema') + (', T=1' if name.endswith('temp1') else ', T=0')
-        if 'total_requests' in run:
-            temp_table += f"| {label} | {run['total_requests']} | {run['raw_json_success_pct']:g}% | {run['schema_success_pct']:g}% | {run['classification_accuracy_pct']:g}% |\n"
-        else:
-            temp_table += f'| {label} | PENDING | PENDING | PENDING | PENDING |\n'
-    discussion='The primary comparison is pending; no semantic effect can yet be inferred.'
-    if 'paired_classification' in comparison:
-        paired=comparison['paired_classification']
-        delta=b['classification_accuracy_pct']-a['classification_accuracy_pct']
-        discussion=(f"Schema decoding changed end-to-end classification accuracy by {delta:+g} percentage points "
-                    f"on these 100 texts. Both modes were correct on {paired['both_correct']}, only prompt-only "
-                    f"on {paired['only_first_correct']}, only schema on {paired['only_second_correct']}, and both "
-                    f"wrong on {paired['both_wrong']}. Predictions agreed on {paired['same_prediction']}/100. "
-                    f"Among {paired['both_schema_valid']} outputs valid in both modes, "
-                    f"{paired['different_prediction_when_both_valid']} category decisions differed. "
-                    "Separate usable-output gains from changed decisions; neither establishes a general semantic advantage.")
-    temp_discussion=[]
-    for base in ('prompt_only','schema_constrained'):
-        zero, one=runs[base],runs[base+'_temp1']
-        if 'total_requests' in zero and 'total_requests' in one:
-            temp_discussion.append(f"For {base.replace('_',' ')}, T=0 to T=1 changed raw parsing "
-                f"{zero['raw_json_success_pct']:g}% to {one['raw_json_success_pct']:g}%, schema validity "
-                f"{zero['schema_success_pct']:g}% to {one['schema_success_pct']:g}%, and accuracy "
-                f"{zero['classification_accuracy_pct']:g}% to {one['classification_accuracy_pct']:g}%.")
-    entity_table='Entity precision, recall and per-type/overall F1: PENDING HUMAN REVIEW.'
-    if all(isinstance(run.get('entity_f1'),dict) for run in (a,b)):
-        entity_table='| Mode / type | Precision | Recall | F1 |\n|---|---:|---:|---:|\n'
-        for name,run in [('Prompt',a),('Schema',b)]:
-            for kind,score in run['entity_f1'].items():
-                entity_table+=f"| {name} / {kind} | {score['precision_pct']:g}% | {score['recall_pct']:g}% | {score['f1_pct']:g}% |\n"
-    return f'''# Structured Text Classification & Information Extraction
+def report_markdown(results, directory):
+    runs, progress = results["runs"], results["entity_gold"]
+    finished = [r for r in runs.values() if "total_requests" in r]
+    requests = sum(r["total_requests"] for r in finished)
+    pending = ([] if progress["complete"] else ["manual annotation"])
+    if len(finished) != 4:
+        pending.append("experiments")
+    status = "INCOMPLETE — pending " + " and ".join(pending) if pending else "Evaluation complete"
+    environment = None
+    for filename, _, _ in RUNS.values():
+        meta = directory / Path(filename).with_suffix(".metadata.json")
+        if meta.exists():
+            environment = json.loads(meta.read_text())["environment"]
+            break
+    setup = "Model tag: qwen2.5:3b. Runtime version, quantization and hardware will be recorded when experiments run."
+    if environment:
+        setup = (f"Model tag: **{environment['model']}**; quantization **{environment['details']['quantization_level']}**; "
+                 f"Ollama **{environment['ollama_version']}**; Python {environment['python']}; GPU: {environment['gpu']}. "
+                 f"Model digest: {environment['model_digest']}. Per-run metadata saves the model template, system message and environment before/after execution.")
+    options = ', '.join(f"{key}={json.dumps(value)}" for key, value in pipeline.OPTIONS.items())
+    table = '| Mode / T | n | Raw JSON | Clean JSON | Schema | Accuracy | Entity F1 |\n|---|---:|---:|---:|---:|---:|---:|\n'
+    for name, (_, mode, temperature) in RUNS.items():
+        run = runs[name]
+        label = f"{mode}, {temperature:g}"
+        if 'total_requests' not in run:
+            table += f'| {label} | Pending | — | — | — | — | Pending |\n'
+            continue
+        rates = [f"{run[k + '_pct']:g}%" for k in ('raw_json_success','clean_json_success','schema_success','classification_accuracy')]
+        f1 = run['entity_f1']
+        rates.append(f"{f1['micro']['f1_pct']:g}%" if isinstance(f1,dict) else 'Pending')
+        table += '| ' + ' | '.join([label,str(run['total_requests']),*rates]) + ' |\n'
+    discussion = 'The mode comparison is pending.'
+    paired = results['paired_classification']
+    if paired:
+        a,b = runs['prompt_only'],runs['schema_constrained']
+        difference = b['classification_accuracy_pct'] - a['classification_accuracy_pct']
+        discussion = (f"At T=0 schema changed end-to-end category accuracy by {difference:+g} percentage points. "
+                      f"Among {paired['both_schema_valid']} outputs valid in both modes, "
+                      f"{paired['different_prediction_when_both_valid']} category predictions differed. "
+                      f"Only prompt was correct on {paired['only_first_correct']} texts, only schema on {paired['only_second_correct']}. "
+                      "A structural recovery can improve usable-output accuracy without changing category decisions on mutually valid outputs.")
+        if difference == 0:
+            discussion += " Here, better formatting added no net correct category decisions. The schema restricts allowed forms and labels; it does not identify the reference category."
+    temperature_discussion = []
+    for name in ('prompt_only', 'schema_constrained'):
+        low, high = runs[name], runs[name + '_temp1']
+        if 'total_requests' in low and 'total_requests' in high:
+            temperature_discussion.append(
+                f"For {name.replace('_', ' ')}, T=0 to T=1 changed raw parsing "
+                f"{low['raw_json_success_pct']:g}% to {high['raw_json_success_pct']:g}% and "
+                f"category accuracy {low['classification_accuracy_pct']:g}% to {high['classification_accuracy_pct']:g}%.")
+    entity_table = 'Entity precision, recall and F1 are pending until all 100 articles are manually annotated.'
+    entity_discussion = 'The effect of schema constraints on entity correctness cannot yet be measured.'
+    if progress['complete'] and all('total_requests' in runs[k] for k in ('prompt_only','schema_constrained')):
+        entity_table = '| Mode / type | Precision | Recall | F1 |\n|---|---:|---:|---:|\n'
+        for name in ('prompt_only','schema_constrained'):
+            for kind, score in runs[name]['entity_f1'].items():
+                label = ('Prompt' if name=='prompt_only' else 'Schema') + ' / ' + kind
+                entity_table += f"| {label} | {score['precision_pct']:g}% | {score['recall_pct']:g}% | {score['f1_pct']:g}% |\n"
+        a,b = (runs[k]['entity_f1']['micro']['f1_pct'] for k in ('prompt_only','schema_constrained'))
+        entity_discussion = (f"Entity micro-F1 at T=0 is {a:g}% for prompt-only and {b:g}% for schema "
+                             f"({b-a:+.2f} percentage points). Grammar constraints restrict structure and labels, "
+                             "but cannot guarantee correct names, types or complete extraction. This single-seed observation does not prove general superiority.")
+    reviewer = ', '.join(sorted({r['reviewer'] for r in load_gold().values() if r['status']=='completed'})) or 'No completed manual annotations yet'
+    report_dir = ROOT / 'report' if directory == ROOT / 'results' else directory / 'report'
+    figure = f"![Current results]({relpath(directory / 'metrics.png', report_dir)})" if finished else ''
+    return f'''# Structured Turkish News: JSON Classification and Entity Extraction
 
-NLP Project I — November 2026 — English submission report
+**{status}.** Manual annotation: **{progress['annotated']}/{progress['selected']}**. Completed requests: **{requests}/400**.
 
-**{status}.** Human entity review: {progress['verified']}/{progress['selected']}. Deadline: 22 November 2026, 23:59 Türkiye time.
+## 1. Task and data
 
-## 1. Introduction and objective
+A local open-source Qwen model classifies Turkish news into seven categories and extracts person, organization and location names. The experiment compares prompt-only JSON instructions with Ollama JSON-schema constraints, then repeats both modes at temperatures 0 and 1. No cloud model API is used for these requests.
 
-A local Qwen LLM converts Turkish news into a category and three named-entity lists. The objective is to separate reliable JSON formatting from correct information. The primary experiment changes only Ollama's format parameter; a supplementary experiment changes only temperature within each mode. No cloud inference, training or fine-tuning is used.
+The fixed evaluation file contains 100 distinct TTC4900 articles: 15 dunya, 15 ekonomi, and 14 each in kultur, saglik, siyaset, spor and teknoloji. Texts, source IDs and original category labels are saved in data/news.jsonl. This balanced subset is not a random estimate of natural news prevalence. Identical texts and order are used in all four runs. Source: [savasy/ttc4900](https://huggingface.co/datasets/savasy/ttc4900).
 
-## 2. Dataset, model and setup
+## 2. Model and method
 
-The frozen TTC4900 file contains 205 records: five development and 200 historical evaluation records (199 distinct texts). The November evaluation selects 100 distinct texts without looking at new model outputs: scan the 200 records in stored order, skip selected duplicate texts, and fill category quotas. Alphabetically first dunya and ekonomi receive 15 each; kultur, saglik, siyaset, spor and teknoloji receive 14 each. IDs and selection rules are saved in data/evaluation_ids.json. This balanced subset is not an estimate of natural news prevalence.
+{setup}
 
-Exact model tag: **{env['model']}**; architecture qwen2; installed quantization **{env['details']['quantization_level']}**, read from Ollama /api/show and checked with ollama show. Ollama **{env['ollama_version']}**; Python **{env['python']}**; GPU: {env['gpu']}. Linux/WSL2 environment and model template/system prompt are captured in results/environment.json. Full model digest: {env['model_digest']}.
+Explicit options: {options}. Temperature is replaced by 1.0 for the temperature experiment; stream=false in all requests. Requests use the same prompt, schema and options except the controlled variable. Prompt-only omits format entirely; schema mode sends the JSON_SCHEMA object. Stop-list and runtime-default details are in docs/GENERATION_PARAMETERS.md. Reference: [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs).
 
-All runs use seed=42, num_ctx=4096, num_predict=384, repeat_penalty=1.2, repeat_last_n=128 and stream=false. Primary temperature=0; supplementary temperature=1.0. top_k and top_p are **not explicitly set**; runtime/model defaults apply. HTTP connection/read timeouts are 5/60 seconds. Per-run metadata captures software, model and hardware before and after execution; per-response hashes identify prompt, schema and source text.
+The prompt defines categories, entity types and a JSON object template. It asks for all named surface forms without a five-name cap. The schema requires category plus person/organization/location string arrays inside entities, and disallows additional fields. Token budget is finite, so truncation remains possible and is counted as a failure when unusable.
 
-## 3. Methodology
-
-build_prompt() retains the Turkish task and adds a minimal explicit JSON object template (v2). This essential correction gives prompt-only mode the field names absent from v1; preserved five-record development outputs with v1 had no schema-valid response. Both new arms use identical v2 prompts and samples in the same order. Prompt-only omits the format key entirely; schema mode sends JSON_SCHEMA. The schema requires exactly category and entities, an allowed category and person/organization/location string arrays; it rejects extra fields. The prompt's five-name cap is not a schema constraint.
-
-parse_json_response() first calls json.loads(raw_output). A JSONDecodeError triggers Markdown/explanation removal, then a second parse. No facts, missing fields or closing braces are invented. A complete nested object recovered from truncated text must still pass validate_schema(). evaluate_sample() saves the untouched raw output and records HTTP, timeout or envelope errors without stopping later samples.
+Raw parsing applies json.loads directly. On JSONDecodeError, cleaning removes Markdown fences or surrounding text and retries. It never adds facts, fields or missing braces. Schema checking then verifies required keys, types and allowed categories. API errors are recorded and remaining samples continue. Raw outputs are preserved; summary metrics are recomputed from them.
 
 <!-- pagebreak -->
 
-## 4. Experimental results
+## 3. Evaluation results
 
-These tables are recomputed from the fresh saved responses, not from historical success flags. All four rates divide successful records by **all 100 requests per condition**, including API, parsing and schema failures. Post-cleaning success includes direct successes and recovered responses. Correct classification requires a schema-valid output whose category equals the TTC4900 label. This is end-to-end accuracy; structural failure counts as incorrect.
+All format and classification rates divide by every request, including API/parse/schema failures. Classification counts a correct category only when the full output is schema-valid. Entity scoring treats invalid outputs as empty predictions, so missing gold names count as false negatives. Pending entity F1 is not a zero score.
 
 {table}
 
 {discussion}
 
-### Controlled temperature experiment
+{' '.join(temperature_discussion)} These single-seed findings do not establish a universal temperature effect. The live video demonstrates both temperatures on the same new texts.
 
-The same 100 texts are used at both temperatures in both modes (400 requests). Seed, prompt, model and other options remain fixed within each pair.
-
-{temp_table}
-
-{f"At T=0 then T=1, prompt-only raw parsing was {runs['prompt_only']['raw_json_success_pct']:g}% then {runs['prompt_only_temp1']['raw_json_success_pct']:g}%, and accuracy was {runs['prompt_only']['classification_accuracy_pct']:g}% then {runs['prompt_only_temp1']['classification_accuracy_pct']:g}%. Schema accuracy was {runs['schema_constrained']['classification_accuracy_pct']:g}% then {runs['schema_constrained_temp1']['classification_accuracy_pct']:g}%. These observations do not establish a general temperature effect." if len(temp_discussion)==2 else 'Temperature runs are PENDING.'}
-
-![Measured formatting and classification rates; pending F1 is not a zero score.](../results/figures/mode_temperature_comparison.png)
+{figure}
 
 <!-- pagebreak -->
 
-## 5. Entity evaluation, discussion and limitations
+## 4. Manual annotation and entity matching
 
-TTC4900 supplies class labels, not verified entity labels. data/entity_gold.jsonl contains historical-model suggestions explicitly marked candidate. The terminal helper displays the original text, lets a human edit every list, and saves verified status only after explicit confirmation with reviewer, timestamp and source hash. Current verification: **{progress['verified']}/100**. No entity score is released until all selected gold records are verified. Suggestions can bias review; the reviewer must also check omissions.
+The annotation screen starts with empty fields and displays only the article and the annotator's own saved entries. The human selects or types source-text names, assigns their types and explicitly saves each article. No model suggests, completes or verifies these labels. Completed records include annotator, timestamp and source-text hash. Recorded annotator(s): **{reviewer}**.
 
-Match names by NFC-normalized exact equality, mapping Turkish İ to i and I to ı before lowercasing, replacing underscores with spaces and collapsing whitespace. Retain punctuation and entity type. Group explicit aliases into one gold entry; aliases must not overlap between gold entities. Deduplicate identical predictions and allow at most one prediction per gold entity. Wrong types count as FP and FN. Invalid outputs provide empty prediction sets. Per-type and micro scores use P=TP/(TP+FP), R=TP/(TP+FN), F1=2PR/(P+R); zero denominators give zero. Micro counts are summed over all texts and types before division.
+Annotate all distinct named surface forms. Exclude titles, grammatical suffixes, products, events, nationalities and fictional characters. Use the longest explicit name at a mention; include a short form separately only when it occurs separately. A club or national team is an organization; a country used geographically is a location. Repeated identical forms count once. There is no entity-count cap and no alias-group syntax. Full policy: docs/ANNOTATION_GUIDELINES.md.
 
-Gold uses the first five distinct supported entities per type in order of first mention, keeping aliases together. This matches the output cap, but the prompt does not specify which five; alternative valid choices can lower exact-match scores. Full annotation rules cover titles, institutions, geographic names, suffixes and overlaps in docs/ANNOTATION_GUIDELINES.md.
+Matching is exact after NFC normalization, Turkish İ→i and I→ı replacement before lowercasing, underscores-to-spaces and whitespace collapsing. Entity type is preserved. Compare sets of (type, normalized surface form) within each article. A wrong type contributes FP and FN; no partial or fuzzy match is used. P=TP/(TP+FP), R=TP/(TP+FN), F1=2PR/(P+R), with zero denominators giving zero. Micro-F1 sums counts across all articles and types.
 
 {entity_table}
 
-Valid JSON does not prove semantic correctness. The saved predictions include sports/economy and international-politics boundary confusions; reference labels and the prompt taxonomy need not agree perfectly. Schema constraints restrict possible outputs but do not establish entity truth. Entity accuracy effects remain unknown until review is complete. A fixed seed does not remove runtime nondeterminism; temperature findings describe one realization per condition, not a universal trend. Quantization, software, hardware and prompt changes can affect reproducibility. Model pretraining overlap with TTC4900 is unknown.
+{entity_discussion}
 
-Historical evidence is separate: the preserved 200-response v1 schema run achieved 200/200 raw and schema-valid outputs, 107/200 correct categories (53.5%), and no API errors. It uses a different prompt and selection, so it is not a controlled baseline for these tables. The first fresh prompt run resumed after an application restart at 35 records; provenance was checked and no saved output was replaced. Timings exclude that interruption. Earlier uncommitted partial runs remain archived, excluded from this comparison.
+Every annotation save rebuilds metrics, plot and this report from current gold. New or changed gold changes the evaluation input; no F1 value is hard-coded. Annotation fingerprint: {results['gold_sha256']}.
 
-### Reproduction and submission status
+## 5. Limitations and reproduction
 
-Run python src/evaluate.py --compare to recalculate comparisons/plots, then python src/build_report.py to regenerate this report. New inference requires --run, a mode, a temperature and a new result filename; README gives exact commands. Offline tests exercise HTTP mocks only. src/demo.py sends genuine live requests on five new fictional Turkish examples; expected categories require student confirmation. Human annotation, final PDF review after F1, English recording and Unlisted YouTube upload remain student actions. The current draft does not claim assignment completion.
+One annotator, one seed and a small balanced subset limit generalization. No blinded annotation or inter-annotator agreement is claimed. Exact surface matching penalizes spelling differences; finite output/context budgets can omit names. JSON validity is not semantic correctness. Runtime/hardware changes can affect reproducibility even with a fixed seed; pretraining overlap is unknown.
 
-Dataset source recorded by the original project: [savasy/ttc4900](https://huggingface.co/datasets/savasy/ttc4900). Interface reference: [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs). Course page was unavailable to the agent; the user-supplied November requirements were followed. Evidence and backup details: docs/UPGRADE_EVIDENCE.md.
-'''
+Run python src/build_report.py to regenerate all derived outputs without model calls. Run python src/evaluate.py --run-all --directory results/new_run for new inference. Code/report, the English video (maximum 30 minutes) and Unlisted link must be submitted according to the course instructions. Manual labels, live tests and the student's own defense cannot be replaced by generated artifacts.
+'''.strip() + "\n"
 
 
 def render_pdf(markdown, destination):
@@ -161,7 +169,7 @@ def render_pdf(markdown, destination):
         if block=='<!-- pagebreak -->': story.append(PageBreak())
         elif block.startswith('!['):
             match=re.fullmatch(r'!\[(.*?)\]\((.*?)\)',block)
-            image_path=(ROOT/'report'/match[2]).resolve()
+            image_path=(Path(destination).parent/match[2]).resolve()
             if image_path.exists():
                 story.append(Image(str(image_path),width=500,height=233))
         elif block.startswith('|'):
@@ -189,11 +197,28 @@ def render_pdf(markdown, destination):
     print(f'Generated {destination}: {doc.page} pages. Visually inspect before submission.')
 
 
+def rebuild(directory=None):
+    directory = Path(directory or ROOT / "results").resolve()
+    report_dir = ROOT / "report" if directory == ROOT / "results" else directory / "report"
+    report_dir.mkdir(parents=True, exist_ok=True)
+    # Remove derived artifacts first: a failed refresh must not leave stale scores.
+    for path in (directory/'metrics.json', directory/'metrics.png',
+                 report_dir/'technical_report.md', report_dir/'technical_report.pdf'):
+        path.unlink(missing_ok=True)
+    results = compare_runs(directory)
+    markdown = report_markdown(results, directory)
+    (report_dir/'technical_report.md').write_text(markdown, encoding='utf-8')
+    render_pdf(markdown, report_dir/'technical_report.pdf')
+    return results
+
+
 def main():
-    comparison, temperature=compare_runs()
-    markdown=report_markdown(comparison,temperature)
-    (ROOT/'report/technical_report.md').write_text(markdown,encoding='utf-8')
-    render_pdf(markdown,ROOT/'report/technical_report.pdf')
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--directory', type=Path)
+    args = parser.parse_args()
+    results = rebuild(args.directory)
+    print('Manual annotation:', results['entity_gold'])
 
 
-if __name__=='__main__': main()
+if __name__ == '__main__':
+    main()

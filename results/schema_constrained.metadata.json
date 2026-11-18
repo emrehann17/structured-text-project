@@ -28,20 +28,36 @@
       "temperature": 0,
       "seed": 42,
       "num_ctx": 4096,
-      "num_predict": 384,
+      "num_predict": 1024,
       "repeat_penalty": 1.2,
-      "repeat_last_n": 128
+      "repeat_last_n": 128,
+      "top_k": 40,
+      "top_p": 0.9,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
     },
-    "top_k_top_p": "not explicitly set (Ollama/model defaults)",
+    "sampling_options": {
+      "temperature": 0,
+      "seed": 42,
+      "num_ctx": 4096,
+      "num_predict": 1024,
+      "repeat_penalty": 1.2,
+      "repeat_last_n": 128,
+      "top_k": 40,
+      "top_p": 0.9,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
+    },
     "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
     "python": "3.12.3",
     "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB",
     "model_parameters": null,
     "model_template": "{{- if .Messages }}\n{{- if or .System .Tools }}<|im_start|>system\n{{- if .System }}\n{{ .System }}\n{{- end }}\n{{- if .Tools }}\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{{- range .Tools }}\n{\"type\": \"function\", \"function\": {{ .Function }}}\n{{- end }}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>\n{{- end }}<|im_end|>\n{{ end }}\n{{- range $i, $_ := .Messages }}\n{{- $last := eq (len (slice $.Messages $i)) 1 -}}\n{{- if eq .Role \"user\" }}<|im_start|>user\n{{ .Content }}<|im_end|>\n{{ else if eq .Role \"assistant\" }}<|im_start|>assistant\n{{ if .Content }}{{ .Content }}\n{{- else if .ToolCalls }}<tool_call>\n{{ range .ToolCalls }}{\"name\": \"{{ .Function.Name }}\", \"arguments\": {{ .Function.Arguments }}}\n{{ end }}</tool_call>\n{{- end }}{{ if not $last }}<|im_end|>\n{{ end }}\n{{- else if eq .Role \"tool\" }}<|im_start|>user\n<tool_response>\n{{ .Content }}\n</tool_response><|im_end|>\n{{ end }}\n{{- if and (ne .Role \"assistant\") $last }}<|im_start|>assistant\n{{ end }}\n{{- end }}\n{{- else }}\n{{- if .System }}<|im_start|>system\n{{ .System }}<|im_end|>\n{{ end }}{{ if .Prompt }}<|im_start|>user\n{{ .Prompt }}<|im_end|>\n{{ end }}<|im_start|>assistant\n{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}",
     "model_system": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
-    "captured_at": "2026-11-16T10:19:37.656639+00:00"
+    "captured_at": "2026-11-18T15:30:57.071308+00:00"
   },
-  "environment_sha256": "062484cc42ed758db41f305654e5eb0ae7a8dcc21f321316faefa8ae00db92e9",
   "sample_ids": [
     4000,
     933,
@@ -144,14 +160,18 @@
     2462,
     543
   ],
-  "mode": "schema",
   "options": {
     "temperature": 0,
     "seed": 42,
     "num_ctx": 4096,
-    "num_predict": 384,
+    "num_predict": 1024,
     "repeat_penalty": 1.2,
-    "repeat_last_n": 128
+    "repeat_last_n": 128,
+    "top_k": 40,
+    "top_p": 0.9,
+    "min_p": 0,
+    "presence_penalty": 0,
+    "frequency_penalty": 0
   },
   "environment_after": {
     "ollama_version": "0.40.2",
@@ -181,17 +201,34 @@
       "temperature": 0,
       "seed": 42,
       "num_ctx": 4096,
-      "num_predict": 384,
+      "num_predict": 1024,
       "repeat_penalty": 1.2,
-      "repeat_last_n": 128
+      "repeat_last_n": 128,
+      "top_k": 40,
+      "top_p": 0.9,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
     },
-    "top_k_top_p": "not explicitly set (Ollama/model defaults)",
+    "sampling_options": {
+      "temperature": 0,
+      "seed": 42,
+      "num_ctx": 4096,
+      "num_predict": 1024,
+      "repeat_penalty": 1.2,
+      "repeat_last_n": 128,
+      "top_k": 40,
+      "top_p": 0.9,
+      "min_p": 0,
+      "presence_penalty": 0,
+      "frequency_penalty": 0
+    },
     "platform": "Linux-6.18.58.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
     "python": "3.12.3",
     "gpu": "NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB",
     "model_parameters": null,
     "model_template": "{{- if .Messages }}\n{{- if or .System .Tools }}<|im_start|>system\n{{- if .System }}\n{{ .System }}\n{{- end }}\n{{- if .Tools }}\n\n# Tools\n\nYou may call one or more functions to assist with the user query.\n\nYou are provided with function signatures within <tools></tools> XML tags:\n<tools>\n{{- range .Tools }}\n{\"type\": \"function\", \"function\": {{ .Function }}}\n{{- end }}\n</tools>\n\nFor each function call, return a json object with function name and arguments within <tool_call></tool_call> XML tags:\n<tool_call>\n{\"name\": <function-name>, \"arguments\": <args-json-object>}\n</tool_call>\n{{- end }}<|im_end|>\n{{ end }}\n{{- range $i, $_ := .Messages }}\n{{- $last := eq (len (slice $.Messages $i)) 1 -}}\n{{- if eq .Role \"user\" }}<|im_start|>user\n{{ .Content }}<|im_end|>\n{{ else if eq .Role \"assistant\" }}<|im_start|>assistant\n{{ if .Content }}{{ .Content }}\n{{- else if .ToolCalls }}<tool_call>\n{{ range .ToolCalls }}{\"name\": \"{{ .Function.Name }}\", \"arguments\": {{ .Function.Arguments }}}\n{{ end }}</tool_call>\n{{- end }}{{ if not $last }}<|im_end|>\n{{ end }}\n{{- else if eq .Role \"tool\" }}<|im_start|>user\n<tool_response>\n{{ .Content }}\n</tool_response><|im_end|>\n{{ end }}\n{{- if and (ne .Role \"assistant\") $last }}<|im_start|>assistant\n{{ end }}\n{{- end }}\n{{- else }}\n{{- if .System }}<|im_start|>system\n{{ .System }}<|im_end|>\n{{ end }}{{ if .Prompt }}<|im_start|>user\n{{ .Prompt }}<|im_end|>\n{{ end }}<|im_start|>assistant\n{{ end }}{{ .Response }}{{ if .Response }}<|im_end|>{{ end }}",
     "model_system": "You are Qwen, created by Alibaba Cloud. You are a helpful assistant.",
-    "captured_at": "2026-11-16T10:21:09.746897+00:00"
+    "captured_at": "2026-11-18T15:32:37.898757+00:00"
   }
 }

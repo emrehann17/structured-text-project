@@ -1,83 +1,56 @@
-# Human entity review
+# Manual entity annotation
 
-`data/entity_gold.jsonl` has one record for each selected ID. The initial lists are
-**unverified historical Qwen predictions**, not manually annotated gold. They may
-contain wrong types, omissions and invented names. `candidate_source` and the
-original results hash retain this provenance. Never accept a list just because
-it was suggested; read the complete source article and check every type.
+Start from empty fields. Select names directly from each article, or type a name
+in the appropriate person/organization/location field and press Enter or Ekle.
+Typed names must also occur in the article; they follow the same rules as selected
+names. Added names are highlighted in the article: people in blue, organizations
+in green and locations in yellow. Highlights update when names are added or removed,
+and are restored from your saved lists when revisiting an article. Only your own
+saved selections are displayed when revisiting an article. Read the whole article,
+check omissions and explicitly save it. Do not generate labels with an AI tool.
+An empty list is a valid annotation only after you have checked the text.
 
-## Workflow
+## What to select
 
-```bash
-python src/annotate_entities.py --web
-python src/annotate_entities.py --status
-python src/annotate_entities.py --reviewer "Your real name"
-python src/annotate_entities.py --reviewer "Your real name" --id 4000
-python src/evaluate.py --compare
-```
-
-`--web` launches a lightweight local browser interface (`http://127.0.0.1:8765`) that
-displays the full article with color-coded entity highlights, second-pass discrepancy
-flags, and one-click Accept & Verify, Edit, Move (`→Org`/`→Per`/`→Loc`), Remove, Next
-and Previous actions. No bulk-approve option exists; each record requires explicit
-inspection and confirmation.
-
-In terminal mode, the full original text (including its underscores) is shown. Enter
-keeps a list; `-` empties it; `name; another name` replaces it. `full name | alias`
-groups aliases of ONE entity. Only an explicit human `y` verifies a record.
-Ctrl-C stops with previously verified records saved; an unfinished record is not
-saved. Use `--id` to revisit a record. Reviewer, UTC time and source text SHA-256
-are stored. Do not pipe automated `y` answers into this tool.
-
-F1 is **PENDING HUMAN REVIEW** until every ID in the analyzed run is verified.
-No partial score is presented as a final score. The helper can enforce metadata,
-but only the reviewer can establish that the labels were actually read carefully.
-
-## Consistent labeling policy
-
-- Person: a named real individual, not a title, role or fictional character.
-- Organization: named companies, institutions, parties, clubs, national sports
-  teams, universities and agencies. Products and events are not organizations.
-- Location: named geographic places, countries, cities, regions and physical
-  venues. A country remains a location when acting politically. Nationality
-  adjectives are not locations.
+- **Person:** a named real person. Exclude titles, roles and fictional characters.
+- **Organization:** companies, institutions, parties, universities, agencies,
+  sports clubs and national teams. Products and events are excluded.
+- **Location:** geographic places, countries, cities, regions and physical venues.
+  A country standing for its national team is an organization; a geographic country
+  is a location. Nationality adjectives are not place names.
 - A venue acting as an institution is an organization; a venue used as a place is
-  a location. Choose its contextual role consistently. A club is an organization,
-  not an additional mention of the city in its name.
-- Do not infer names absent from the text. A source agency such as `aa` is an
-  organization if explicitly present. Do not expand abbreviations using outside
-  knowledge; accept expanded names only when they occur in the text.
-- Keep the most complete surface form actually present, stripping grammatical
-  case suffixes. No fuzzy matching, automatic suffix stripping or translation is
-  performed by the scorer. Preserve meaningful punctuation in names.
-- Group repeated mentions and explicit aliases into a single entry using `|`.
-  No alias may belong to two different entries within a type. For ambiguous
-  shared surnames, retain unambiguous forms only. Nested organizations are not
-  split into extra locations unless the location occurs independently.
-- **Maximum five distinct entities per type**, matching the model's output cap.
-  When there are more, retain the first five distinct entities in order of first
-  mention. Later aliases can enrich those entries. Record a note about capping.
-  This fixed convention avoids selecting gold after seeing new predictions.
-  The prompt does not prescribe which five to choose, so alternative legitimate
-  choices can lower measured recall; discuss this limitation.
+  a location. Choose the contextual type.
+- Select the longest explicit name at a mention, without its title or grammatical
+  suffix. Do not infer a full name or expand abbreviations from outside knowledge.
+- Include a short name separately if it occurs separately in the text. For example,
+  if both a full institution name and its abbreviation occur independently, select
+  both. This task measures named surface forms, not real-world identity linking.
+- Do not extract an internal city/person name from a longer organization name
+  unless it also occurs independently. Add each distinct form once per type.
+- Annotate **all** qualifying forms; there is no limit of five and no alias syntax.
+  The interface allows selecting just the name within an inflected word.
 
-## Matching and denominators
+The displayed article replaces dataset underscores with spaces for readability.
+The original text is retained; scoring applies the same space normalization.
 
-NFC Unicode normalization; `İ→i`, `I→ı`, then lowercase; underscores become spaces;
-whitespace collapses. Punctuation is retained to avoid merging different names.
-Matching is exact after normalization and within the same type. Identical
-normalized predictions are deduplicated; each gold entity matches at most one
-prediction. Predicting two different aliases for the same entity gives one TP
-and one FP. Wrong-type entities give an FP in the predicted type and an FN in
-the gold type. Gold aliases must be disjoint, avoiding ambiguous greedy matches.
+## Saving and scoring
 
-Precision = TP/(TP+FP), recall = TP/(TP+FN), F1 = 2PR/(P+R).
-A zero denominator gives zero. Micro scores sum TP, FP, FN over every selected
-sample and all three types before division; per-type scores use the same rule
-within a type. API errors and schema-invalid responses supply empty prediction
-sets, so all their gold entities are FNs. Numeric results are percentages.
-These are end-to-end scores, conditional on schema validation for usable output.
+Enter your real name and use the completion button for each article. The program
+stores `annotation_method="manual_from_text"`, `status="completed"`, reviewer,
+time and a source-text hash. Until then the record is `draft`, even if its lists are
+empty. These fields document your action; software cannot establish whether you
+read the article carefully.
 
-Reviewing model suggestions may bias the annotator. Check omissions against the
-text, and if possible ask a second person to review ambiguous cases. No second
-review or inter-annotator agreement has been claimed.
+Every saved correction rebuilds scores, the plot and the report. No numeric entity
+F1 is released until all 100 annotations are complete. For edits made directly to
+the JSONL file, run `python src/build_report.py` before using any result.
+
+Matching: NFC Unicode normalization, replace `İ` with `i` and `I` with `ı`, then
+lowercase; replace underscores with spaces and collapse whitespace. Preserve other
+punctuation and entity type. Compare exact sets of normalized forms per article.
+Wrong types produce FP and FN. Unsupported names are FP; missed names are FN.
+Unusable model responses have no predicted entities. Micro precision/recall/F1
+sum TP/FP/FN over all articles/types; zero denominators give zero.
+
+This is a single-annotator study. Do not claim blinded annotation or agreement
+between independent annotators. Do not change a label just to agree with a model.

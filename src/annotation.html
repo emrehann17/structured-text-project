@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="tr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Manuel haber anotasyonu</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f6f7f8;color:#18232b;font:16px/1.6 system-ui,sans-serif}
+main{max-width:1100px;margin:30px auto;padding:0 24px}header{display:flex;justify-content:space-between;align-items:center;gap:20px}
+h1{font-size:24px;margin:0}h2{font-size:17px;margin:0 0 12px}.muted{color:#566672;font-size:14px}
+.panel{background:white;border:1px solid #dbe2e7;border-radius:10px;padding:22px;margin:18px 0}
+#article{white-space:pre-wrap;line-height:1.9;max-height:48vh;overflow:auto;padding-right:12px;user-select:text}
+#article::selection{background:#ffe6a4}button,input{font:inherit}button{cursor:pointer;padding:8px 14px;border:1px solid #c4cfd7;border-radius:6px;background:white;color:#18232b}
+mark{padding:0;color:inherit;border-radius:3px}mark.person{background:#cfe5ff}mark.organization{background:#cef0dc}mark.location{background:#ffe7a3}mark.mixed{background:#e5d7f5}
+.legend{display:flex;gap:14px;flex-wrap:wrap;margin-top:12px;font-size:13px}.legend mark{padding:2px 7px}
+button:hover{background:#edf3f5}button:disabled{opacity:.5;cursor:default}.primary{background:#155f70;color:white;border-color:#155f70}.primary:hover{background:#124e5c}
+input{padding:7px 10px;border:1px solid #b9c7cf;border-radius:6px;max-width:100%}.toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.columns{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.columns section{min-width:0}ul{list-style:none;padding:0;margin:12px 0;min-height:32px}li{display:flex;justify-content:space-between;gap:8px;border-bottom:1px solid #edf0f2;padding:6px 0;overflow-wrap:anywhere}li button{padding:0 7px;border:0;color:#a32c2c}
+#selected{color:#765200;min-height:25px}#message{white-space:pre-wrap;color:#9c2e24;min-height:25px}footer{display:flex;justify-content:space-between;align-items:center;gap:12px;margin:20px 0}
+@media(max-width:700px){.columns{grid-template-columns:1fr}header,footer{flex-wrap:wrap}#article{max-height:none}}
+</style>
+<main>
+<header><div><h1>Manuel haber anotasyonu</h1><div class="muted">Metni oku; isimleri seçerek veya yazarak türlerine ekle.</div></div><strong id="progress"></strong></header>
+<div class="toolbar"><label>Anotasyonu yapan: <input id="reviewer" autocomplete="name" placeholder="Ad Soyad"></label><span id="position"></span></div>
+<div class="panel"><h2 id="heading"></h2><div id="article"></div>
+<div class="legend" aria-label="Vurgu renkleri"><span><mark class="person">Kişi</mark></span><span><mark class="organization">Kurum</mark></span><span><mark class="location">Yer</mark></span></div>
+<div class="toolbar"><span class="muted">Metindeki adı seçtikten sonra:</span><button data-add="person">Kişi ekle</button><button data-add="organization">Kurum ekle</button><button data-add="location">Yer ekle</button></div>
+<div id="selected"></div></div>
+<div class="panel columns">
+<section><h2>Kişiler</h2><form data-entry="person"><label for="person-input" class="muted">Kişi adını elle yaz</label><div class="toolbar"><input id="person-input" placeholder="Metindeki kişi adı" autocomplete="off"><button type="submit">Ekle</button></div></form><ul id="person"></ul></section>
+<section><h2>Kurumlar</h2><form data-entry="organization"><label for="organization-input" class="muted">Kurum adını elle yaz</label><div class="toolbar"><input id="organization-input" placeholder="Metindeki kurum adı" autocomplete="off"><button type="submit">Ekle</button></div></form><ul id="organization"></ul></section>
+<section><h2>Yerler</h2><form data-entry="location"><label for="location-input" class="muted">Yer adını elle yaz</label><div class="toolbar"><input id="location-input" placeholder="Metindeki yer adı" autocomplete="off"><button type="submit">Ekle</button></div></form><ul id="location"></ul></section>
+</div>
+<div class="muted">Tüm isimleri işaretle; sayı sınırı yok. Unvanları ve çekim eklerini seçme. Aynı yazımı bir kez ekle. Kısa ve uzun biçimler ayrı geçiyorsa ikisini de ekle. Hiç varlık yoksa alanlar boş kalabilir.</div>
+<details><summary>Anotasyon kuralları</summary><p>Kişi: gerçek kişi adı. Kurum: şirket, kurum, parti, kulüp veya milli takım. Yer: şehir, ülke, coğrafi bölge veya mekân. Ürün, etkinlik, unvan, vatandaşlık sıfatı ve kurmaca karakterleri dahil etme. Ülke bir milli takım anlamındaysa kurum, coğrafi anlamdaysa yerdir. Metinde geçmeyen isimleri ekleme. Uzun bir adın içinden ayrıca bir şehir adı çıkarma; şehir başka yerde bağımsız geçiyorsa ekle.</p></details>
+<div id="message" role="status"></div>
+<footer><button id="previous">Önceki</button><button id="save" class="primary">Anotasyonu tamamla, kaydet ve ilerle</button><button id="next">Sonraki</button></footer>
+</main>
+<script>
+const kinds=['person','organization','location'];
+let state,index=0,selection='',entities={},dirty=false,busy=false;
+const $=id=>document.getElementById(id);
+function normalize(value){return value.normalize('NFC').replaceAll('İ','i').replaceAll('I','ı').toLowerCase().replaceAll('_',' ').trim().replace(/\s+/g,' ')}
+function addEntity(kind, value) {
+  if (busy || !state) return false;
+  const name = value.trim();
+  if (!name) {
+    $('message').textContent = 'Metinden bir isim seç veya ilgili alana bir isim yaz.';
+    return false;
+  }
+  if (!normalize(state.samples[index].text).includes(normalize(name))) {
+    $('message').textContent = 'Bu isim haber metninde bulunamadı. Metindeki yazımını kullan.';
+    return false;
+  }
+  if (entities[kind].some(value => normalize(value) === normalize(name))) {
+    $('message').textContent = 'Bu isim aynı türün listesinde zaten var.';
+    return false;
+  }
+  entities[kind].push(name);
+  dirty = true;
+  lists();
+  $('message').textContent = '';
+  return true;
+}
+function highlightArticle() {
+  const article = $('article');
+  const scroll = article.scrollTop;
+  const text = state.samples[index].text.normalize('NFC');
+  const ranges = [];
+  const labels = {person: 'Kişi', organization: 'Kurum', location: 'Yer'};
+  const escape = value => value.replace(/[\\^$.*+?()[\]{}|]/g, '\\$&');
+  for (const kind of kinds) {
+    for (const name of entities[kind]) {
+      // Explicit Turkish case pairs preserve the distinction between i and ı.
+      const pattern = name.trim().normalize('NFC').split(/[\s_]+/u).map(word =>
+        Array.from(word, char => {
+          const variants = [...new Set([char.toLocaleLowerCase('tr'), char.toLocaleUpperCase('tr')])];
+          return '(?:' + variants.map(escape).join('|') + ')';
+        }).join('')
+      ).join('[\\s_]+');
+      if (!pattern) continue;
+      for (const match of text.matchAll(new RegExp(pattern, 'gu'))) {
+        ranges.push({start: match.index, end: match.index + match[0].length, kind});
+      }
+    }
+  }
+  // Split overlapping names into non-nested marks, preserving the original text.
+  const boundaries = [...new Set([0, text.length, ...ranges.flatMap(r => [r.start, r.end])])].sort((a, b) => a - b);
+  const fragment = document.createDocumentFragment();
+  for (let i = 0; i < boundaries.length - 1; i++) {
+    const start = boundaries[i], end = boundaries[i + 1];
+    const types = [...new Set(ranges.filter(r => r.start <= start && r.end >= end).map(r => r.kind))];
+    const content = text.slice(start, end);
+    if (types.length) {
+      const mark = document.createElement('mark');
+      mark.className = types.length > 1 ? 'mixed' : types[0];
+      mark.title = types.map(kind => labels[kind]).join(' / ');
+      mark.textContent = content;
+      fragment.append(mark);
+    } else {
+      fragment.append(document.createTextNode(content));
+    }
+  }
+  article.replaceChildren(fragment);
+  article.scrollTop = scroll;
+}
+function lists(){for(const kind of kinds){$(kind).replaceChildren();for(const [i,name] of entities[kind].entries()){const li=document.createElement('li');const span=document.createElement('span');span.textContent=name;const remove=document.createElement('button');remove.textContent='×';remove.setAttribute('aria-label',name+' sil');remove.onclick=()=>{entities[kind].splice(i,1);dirty=true;lists()};li.append(span,remove);$(kind).append(li)}}highlightArticle()}
+function show(){const item=state.samples[index];entities=Object.fromEntries(kinds.map(k=>[k,[...item.annotation[k]]]));dirty=false;selection='';for(const kind of kinds)$(kind+'-input').value='';$('article').textContent=item.text;$('heading').textContent='Haber '+item.id;$('position').textContent=(index+1)+' / '+state.samples.length+' · '+(item.annotation.status==='completed'?'Tamamlandı':'Henüz tamamlanmadı');$('progress').textContent=state.progress.annotated+' / '+state.progress.selected+' tamamlandı';$('selected').textContent='';$('previous').disabled=index===0;$('next').disabled=index===state.samples.length-1;lists()}
+function navigate(delta){if(busy)return;if(dirty&&!confirm('Kaydedilmemiş değişiklikler silinsin mi?'))return;index+=delta;$('message').textContent='';show()}
+document.addEventListener('selectionchange',()=>{const sel=window.getSelection();if(sel&&sel.rangeCount&&$('article').contains(sel.anchorNode)&&$('article').contains(sel.focusNode)){selection=sel.toString().trim();$('selected').textContent=selection?'Seçili: '+selection:''}});
+for (const button of document.querySelectorAll('[data-add]')) {
+  button.onmousedown = event => event.preventDefault();
+  button.onclick = () => addEntity(button.dataset.add, selection);
+}
+for (const form of document.querySelectorAll('[data-entry]')) {
+  const kind = form.dataset.entry;
+  const input = $(kind + '-input');
+  input.oninput = () => { dirty = true; };
+  form.onsubmit = event => {
+    event.preventDefault();
+    if (addEntity(kind, input.value)) {
+      input.value = '';
+      input.focus();
+    }
+  };
+}
+$('previous').onclick=()=>navigate(-1);$('next').onclick=()=>navigate(1);
+$('reviewer').value=localStorage.getItem('manual-annotator')||'';
+$('save').onclick=async()=>{if(busy)return;if(kinds.some(kind=>$(kind+'-input').value.trim())){$('message').textContent='Yazdığın isimleri önce Ekle düğmesiyle listeye ekle veya giriş alanını temizle.';return}const reviewer=$('reviewer').value.trim();if(!reviewer){$('message').textContent='Adını ve soyadını yaz.';return}busy=true;$('save').disabled=true;$('message').textContent='Kaydediliyor; değerlendirme ve rapor güncelleniyor…';try{const response=await fetch('/api/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:state.samples[index].id,reviewer,confirmed:true,...entities})});const data=await response.json();if(!response.ok)throw Error(data.error);state=data;localStorage.setItem('manual-annotator',reviewer);index=Math.min(index+1,state.samples.length-1);show();$('message').textContent=state.progress.complete?'100 haber tamamlandı. Güncellenen rapordan deneylerin durumunu kontrol et.':'Kaydedildi. Sonuçlar ve rapor güncellendi.'}catch(error){$('message').textContent=error.message}finally{busy=false;$('save').disabled=false}};
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
+fetch('/api/state').then(r=>{if(!r.ok)throw Error('Veri okunamadı');return r.json()}).then(data=>{state=data;const first=data.samples.findIndex(s=>s.annotation.status!=='completed');index=first<0?0:first;show()}).catch(error=>$('message').textContent=error.message);
+</script>
+</html>

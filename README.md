@@ -1,231 +1,137 @@
-# NLP Project I — Structured Turkish News
+# Structured Turkish News
 
-A small Python pipeline calls local **Qwen2.5:3b through Ollama**, classifies TTC4900
-news, extracts names, preserves raw output, parses/cleans JSON and measures results.
-The November upgrade compares prompt-only with schema-constrained decoding and
-includes a real human entity-review workflow.
+Python + local Qwen2.5:3b through Ollama. The model classifies news and extracts
+people, organizations and places as JSON. The study compares prompt-only and
+JSON-schema-constrained generation on the same 100 texts at temperatures 0 and 1.
 
-**Submission is not complete:** entity gold needs human verification; the student
-must confirm the demo categories, record the English video and upload it Unlisted.
-Deadline: **22 November 2026, 23:59 Türkiye time**. The English report is the primary
-submission; the retained Turkish report is an older historical reference only.
+Entity labels are entered manually by selecting or typing names from the article. The
+annotation screen has no model suggestions. **The project is not ready to submit
+until all 100 manual annotations, the experiments and the student's video are complete.**
+Current progress and measured results are in [the generated report](report/technical_report.md).
 
-## Install and model setup
-
-Run commands from the repository root. Python 3.12 was used locally.
+## Setup
 
 ```bash
 python3 -m venv venv
 source venv/bin/activate
 python -m pip install -r requirements.txt
-```
-
-Install Ollama using its [official Linux instructions](https://docs.ollama.com/linux)
-or the installer for your operating system. On Linux the documented install command is:
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
+ollama pull qwen2.5:3b
 ollama serve
 ```
 
-Keep the server running in another terminal; skip `ollama serve` if the service
-is already running. On a fresh installation fetch and inspect the model:
+Ollama must be installed locally; if its service is already running, skip
+`ollama serve`. Check `ollama --version`, `ollama show qwen2.5:3b` and `ollama ps`.
+The actual version, model digest, quantization and hardware are captured in each
+run's metadata. Use the reported model and parameters for the video.
+[All generation settings](docs/GENERATION_PARAMETERS.md) are documented separately.
 
-```bash
-ollama pull qwen2.5:3b
-ollama list
-ollama show qwen2.5:3b
-ollama --version
-ollama ps
-python src/evaluate.py --env
-```
-
-Do not pull/update a model halfway through a controlled pair. `--env` captures the
-current environment and overwrites `results/environment.json`; run sidecars retain
-their own before/after evidence. The measured environment reports **Q4_K_M**, Ollama
-**0.40.2**, NVIDIA GeForce RTX 3050 Ti Laptop GPU (4096 MiB), and digest
-`357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b`.
-Quantization was read from the installed model, not inferred from its tag.
-
-## Data and experiment design
-
-The frozen [TTC4900 source](https://huggingface.co/datasets/savasy/ttc4900) selection
-has 205 records: first five development, next 200 historical evaluation. The 200
-contain 199 distinct texts. `data/evaluation_ids.json` fixes a balanced selection of
-100 distinct texts: scan in stored order, skip exact duplicate text, fill quotas
-of 15 dunya, 15 ekonomi and 14 in each remaining category. No model output is used
-for selection. Both modes and temperatures use these IDs in identical order.
-
-All new requests use Turkish prompt **v2**, temperature 0 (or explicitly 1), seed
-42, num_ctx 4096, num_predict 384, repeat_penalty 1.2, repeat_last_n 128, stream false.
-**top_k and top_p are not explicitly set**. v2 adds an explicit JSON output template
-to the original prompt because v1 did not expose the object structure to prompt-only
-mode; see [provenance](docs/UPGRADE_EVIDENCE.md). No other prompt tuning was done.
-
-- `mode=prompt`: asks for JSON in the prompt; **omits `format` entirely**.
-- `mode=schema`: adds `format=JSON_SCHEMA`; every other request field is identical.
-- Temperature experiment: same mode, prompt, model and options; only temperature changes.
-
-The required object is:
-
-```json
-{"category":"spor","entities":{"person":[],"organization":[],"location":[]}}
-```
-
-Categories: dunya, ekonomi, kultur, saglik, siyaset, spor, teknoloji. The schema
-requires these fields/types, an allowed category, and no extra keys. The prompt
-limits each entity list to five; the schema does not enforce semantic correctness.
-
-Pipeline: load source → build prompt/request → genuine local HTTP request → preserve
-raw response → direct `json.loads` → catch `JSONDecodeError` → clean fences/surrounding
-text → retry parse → validate structure → score → append JSONL. No missing facts or
-closing braces are invented. API errors are saved and later samples continue.
-
-## Reproduce the controlled experiments
-
-The committed `results/*.jsonl` files are evidence and cannot be overwritten.
-Use a new directory for a reproduction (choose another name if it already exists):
-
-```bash
-python src/evaluate.py --run --mode prompt --temperature 0 --results results/reproduction/prompt_only.jsonl
-python src/evaluate.py --run --mode schema --temperature 0 --results results/reproduction/schema_constrained.jsonl
-python src/evaluate.py --run --mode prompt --temperature 1 --results results/reproduction/prompt_only_temp1.jsonl
-python src/evaluate.py --run --mode schema --temperature 1 --results results/reproduction/schema_constrained_temp1.jsonl
-python src/evaluate.py --compare --directory results/reproduction
-```
-
-This performs **400 genuine requests**: 100 per condition. The temperature study
-uses all 100 texts because local inference is practical. No automatic retries
-replace failures. If a process is interrupted, repeat its exact command with
-`--resume`; it verifies the saved ID prefix, source/prompt hashes, options, digest
-and environment before appending. Only metadata status `running` may resume.
-Truncated/corrupt files fail loudly; preserve them and use a new directory.
-
-To reanalyze the committed controlled results without inference:
-
-```bash
-python src/evaluate.py --compare
-python src/evaluate.py --analyze --results results/prompt_only.jsonl
-```
-
-Comparison validates complete matching ID order, duplicates/missing results,
-model digest, quantization, prompt/schema hashes, hardware/software fingerprint,
-mode and options. Missing/incomplete runs have explicit pending status. It writes
-`comparison.json`, `temperature_comparison.json`, and `figures/mode_temperature_comparison.png`
-inside the compared directory. JSONL rows retain original raw text, predictions,
-entities, parse/schema/correctness flags, API error, timing and provenance.
-
-All four rates divide by **all requests**, including API and structural failures.
-Post-cleaning parsing includes directly parsed responses. Classification accuracy
-requires a schema-valid category equal to its reference label. Entity precision,
-recall and micro/per-type F1 use normalized exact matching with type preserved;
-invalid outputs have no predicted entities. An unavailable F1 is never plotted as zero.
-
-## Measured November results
-
-Each row uses the same 100 selected texts; there were zero API errors in all four runs.
-
-| Mode | Temperature | Raw JSON | After cleaning | Schema | Accuracy | Entity F1 |
-|---|---:|---:|---:|---:|---:|---|
-| Prompt-only | 0 | 96% | 99% | 98% | 48% | PENDING HUMAN REVIEW |
-| Schema | 0 | 100% | 100% | 100% | 50% | PENDING HUMAN REVIEW |
-| Prompt-only | 1 | 75% | 99% | 99% | 54% | PENDING HUMAN REVIEW |
-| Schema | 1 | 100% | 100% | 100% | 52% | PENDING HUMAN REVIEW |
-
-At T=0 the 98 outputs valid in both modes have identical categories. Schema's
-+2 points come from IDs 4811 (prompt category `tekno`, outside the enum) and 2379
-(prompt output has invalid escape sequences). This is an end-to-end reliability
-gain, not evidence of better category choices among mutually valid outputs.
-Entity semantic accuracy remains unknown until human review. Raising temperature
-reduced prompt-only raw parsing but improved its classification in this run;
-no universal temperature effect is claimed.
-
-## Human entity review and F1
+## 1. Annotate the news manually
 
 ```bash
 python src/annotate_entities.py --web
+```
+
+Open **http://127.0.0.1:8765**. Enter your name. Read the news, select an entity in
+its text and click **Kişi ekle**, **Kurum ekle** or **Yer ekle**. You can also type
+a name in the corresponding column and press **Enter** or **Ekle**. Both methods
+require the name to occur in the article and prevent duplicate entries. Added names
+remain highlighted in the article by type, including when revisiting saved work;
+removing a name also removes its highlight. Remove a mistaken
+selection with ×. When the article is complete, save and advance. Empty lists are
+valid only if the article has no entities of that type. Saved selections can be
+revisited and corrected. No labels are completed automatically.
+
+Read [the short annotation policy](docs/ANNOTATION_GUIDELINES.md) before starting.
+Annotate all names: there is no five-name limit. The 100 original category labels
+come from TTC4900; you are annotating entity names, not relabeling categories.
+
+```bash
 python src/annotate_entities.py --status
-python src/annotate_entities.py --reviewer "Your real name"
-python src/annotate_entities.py --reviewer "Your real name" --id 4000
-python src/evaluate.py --compare
+```
+
+**Every save recomputes metrics, the plot and the report.** Entity F1 remains
+pending until all 100 articles are completed. After that, any corrected label
+triggers a fresh calculation; no score is fixed to an earlier annotation version.
+The report records the current gold fingerprint. If a refresh fails, the screen
+reports it and old derived artifacts are removed rather than shown as current.
+
+## 2. Run the four experiments
+
+With local Ollama running and an empty experiment output directory:
+
+```bash
+python src/evaluate.py --run-all
+```
+
+This makes 400 real requests: 100 texts × two modes × two temperatures. Each raw
+response is saved immediately. Existing runs are not overwritten; move them outside
+the project before starting a replacement study. Interrupted files are incomplete
+runs, not usable final results. Keep one complete, consistent set for submission.
+
+The prompt and schema ask for category and person/organization/location arrays.
+Prompt-only requests omit `format`; schema requests send `format=JSON_SCHEMA`.
+All other settings are identical at a given temperature. Parsing first applies
+`json.loads` directly, then retries after cleaning if necessary. Schema and task
+correctness are evaluated separately. API and parsing failures stay in denominators.
+
+## 3. Rebuild results and report
+
+```bash
 python src/build_report.py
 ```
 
-Read [annotation rules](docs/ANNOTATION_GUIDELINES.md) first. Initial suggestions
-in `data/entity_gold.jsonl` have been audited in a second pass against all saved
-model predictions and the source text, but remain **unverified candidates** (`status="candidate"`).
-`--web` launches a fast local browser interface with highlighted entities, discrepancy
-flags, and one-click Accept/Edit/Remove/Move/Next/Previous actions. In terminal mode, Enter keeps a list, `-` empties it, semicolons separate names,
-and `|` joins aliases. Only the human's explicit confirmation verifies a record. Progress
-is saved per reviewed record. Review all 100 texts, correct wrong types and check
-omissions. Retain the first five distinct mentions of each type. The scorer handles
-Turkish İ/I casing, Unicode normalization, whitespace, aliases and duplicates.
-F1 stays **PENDING HUMAN REVIEW** until every selected record is verified.
+This uses the current manual gold and saved raw responses; it makes no model calls.
+It updates `results/metrics.json`, `results/metrics.png`, and both report files.
+Changes to entity labels affect entity precision/recall/F1 and their discussion.
+Formatting and category scores are also recomputed, but entity labels do not enter
+those formulas. Changing the prompt/model/settings requires new model outputs.
 
-## Live video demo
+Raw/cleaned JSON success, schema validity, classification accuracy and entity
+micro/per-type F1 are reported. Matching uses exact normalized surface forms with
+Turkish casing and entity type preserved. No partial matching or alias groups are
+used. The report is limited to four pages; check its PDF visually after final edits.
 
-Five newly authored fictional Turkish stories are separate from TTC4900; novelty
-is checked against all 205 records and the other demo texts. This establishes local
-novelty, not absence from a model's pretraining data. The sports-finance story is
-intentionally ambiguous. Its error is not guaranteed. Read and manually confirm
-or correct `true_category` for each demo record; then set `category_review_status`
-to `verified` and add reviewer/time fields. Until then comparisons are draft.
+## 4. Record the video
 
 ```bash
-python src/demo.py --check
-python src/demo.py --mode both --temperatures 0 1 --output results/video_take1.jsonl
-python src/demo.py --defense --output results/defense_take1.jsonl
+python src/demo.py --output results/live_video.jsonl
+python src/demo.py --defense
 ```
 
-The first live command sends 20 real requests: five texts × two modes × two
-temperatures. Raw text, parsing, schema validity, prediction, entities and expected
-categories appear on screen. No mock/replay option exists. A1 makes two real
-requests before/after removing the format assignment in a temporary source copy;
-repository code remains intact. Use a fresh output filename for another take.
-[English video preparation](docs/VIDEO_PREPARATION.md) covers code lines, ten defense
-questions, live order, recording requirements and chapters. These are speaking
-notes, not a script to read aloud.
+The first command runs the same five new fictional texts through both modes and
+both temperatures (20 local requests). Inspect their expected categories before
+recording. The sports/finance example is intentionally difficult; explain what
+actually happens. The second command demonstrates A1 by removing a normalization
+line in a temporary evaluator. It is explicitly offline evaluation, not new inference.
+It uses a labeled teaching example and, when manual gold is complete, current dataset F1.
 
-## Tests and English report
+[Video preparation](docs/VIDEO_PREPARATION.md) covers the ten selected questions and
+submission rules. Start code walkthrough at **00:00**, show live tests uncut, use
+English, record screen/voice throughout and show your face initially. Maximum
+length: 30 minutes. Upload Unlisted and submit once through the course form by
+**22 November 2026, 23:59**. Include real chapter times and accessible code/PDF links.
+Do not change submitted code or report after the deadline.
+
+## Files and checks
+
+```text
+data/news.jsonl             100 news texts and dataset category labels
+data/entity_gold.jsonl      manual entity selections and completion status
+data/demo_samples.jsonl     five fictional live-demo stories
+src/llm_pipeline.py         prompt, local request, JSON cleaning and schema checks
+src/annotate_entities.py    manual annotation server
+src/annotation.html         select names from article text
+src/evaluate.py             experiments and metrics
+src/build_report.py         refresh results, plot and report together
+src/demo.py                 live tests and A1 experiment
+results/                   four runs, metadata and current derived results
+report/                    generated English Markdown and PDF
+```
 
 ```bash
 python -m unittest discover -s tests -v
-python src/build_report.py
 ```
 
-Tests are offline and mock HTTP only inside tests. They cover both request bodies,
-temperature, parsing/cleaning, errors, schema, denominators, Turkish entities, review
-enforcement, paired provenance, preservation and demo novelty/live-call routing.
-The report builder recalculates metrics from saved raw responses and generates
-`report/technical_report.md` and `report/technical_report.pdf` using ReportLab.
-It refuses a report over four pages. Visually inspect all PDF pages, especially
-after completing gold review; the current PDF is explicitly a draft while F1 is pending.
-
-## Evidence and structure
-
-Historical results are the frozen `optimized_schema_results.jsonl` and original
-`summary.json`: 200/200 raw JSON, 200/200 schema, 107/200 classifications (53.5%),
-zero API errors. **These are not new comparison results.** New measured results
-are in `comparison.json` and `temperature_comparison.json`; each new run has a
-metadata sidecar with before/after environment evidence. Earlier partial upgrade
-outputs in `prior_upgrade/` are excluded. Never combine different configurations.
-
-```text
-data/    test_samples.jsonl, evaluation_ids.json, entity_gold.jsonl, demo_samples.jsonl
-src/     llm_pipeline.py, evaluate.py, annotate_entities.py, demo.py, build_report.py
-results/ historical evidence, four new runs + sidecars, comparisons, figures,
-         environment.json, prior_upgrade/, dev_checks/
-report/  technical_report.md, technical_report.pdf, historical Turkish reference
-docs/   ANNOTATION_GUIDELINES.md, VIDEO_PREPARATION.md, UPGRADE_EVIDENCE.md
-tests/   test_pipeline.py, test_upgrade.py
-```
-
-The original dataset and 200 responses are SHA-256 protected in tests.
-`backup/pre-simplification` remains intact; `backup/pre-nov2026-upgrade-20261116`
-protects main before this upgrade. No history rewrite or force-push is used.
-
-Limitations: single seed, small balanced selection, exact matching and five-name
-cap, model-suggested annotation bias, label-taxonomy ambiguity, possible pretraining
-overlap and hardware/software nondeterminism. Human gold review, manual demo-label
-confirmation, the final English screen/voice recording (face at beginning), and
-Unlisted YouTube upload with actual chapter timestamps remain required.
+Tests use clearly artificial fixtures and mocked HTTP; experiment commands use
+local Ollama. The annotation interface never calls a model. Scripts are the
+submission code; a notebook is optional under the assignment.

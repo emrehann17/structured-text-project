@@ -1,88 +1,71 @@
-# Structured Text Classification & Information Extraction
+# Structured Turkish News: JSON Classification and Entity Extraction
 
-NLP Project I — November 2026 — English submission report
+**Evaluation complete.** Manual annotation: **100/100**. Completed requests: **400/400**.
 
-**Measured report — human gold verified.** Human entity review: 100/100. Deadline: 22 November 2026, 23:59 Türkiye time.
+## 1. Task and data
 
-## 1. Introduction and objective
+A local open-source Qwen model classifies Turkish news into seven categories and extracts person, organization and location names. The experiment compares prompt-only JSON instructions with Ollama JSON-schema constraints, then repeats both modes at temperatures 0 and 1. No cloud model API is used for these requests.
 
-A local Qwen LLM converts Turkish news into a category and three named-entity lists. The objective is to separate reliable JSON formatting from correct information. The primary experiment changes only Ollama's format parameter; a supplementary experiment changes only temperature within each mode. No cloud inference, training or fine-tuning is used.
+The fixed evaluation file contains 100 distinct TTC4900 articles: 15 dunya, 15 ekonomi, and 14 each in kultur, saglik, siyaset, spor and teknoloji. Texts, source IDs and original category labels are saved in data/news.jsonl. This balanced subset is not a random estimate of natural news prevalence. Identical texts and order are used in all four runs. Source: [savasy/ttc4900](https://huggingface.co/datasets/savasy/ttc4900).
 
-## 2. Dataset, model and setup
+## 2. Model and method
 
-The frozen TTC4900 file contains 205 records: five development and 200 historical evaluation records (199 distinct texts). The November evaluation selects 100 distinct texts without looking at new model outputs: scan the 200 records in stored order, skip selected duplicate texts, and fill category quotas. Alphabetically first dunya and ekonomi receive 15 each; kultur, saglik, siyaset, spor and teknoloji receive 14 each. IDs and selection rules are saved in data/evaluation_ids.json. This balanced subset is not an estimate of natural news prevalence.
+Model tag: **qwen2.5:3b**; quantization **Q4_K_M**; Ollama **0.40.2**; Python 3.12.3; GPU: NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB. Model digest: 357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b. Per-run metadata saves the model template, system message and environment before/after execution.
 
-Exact model tag: **qwen2.5:3b**; architecture qwen2; installed quantization **Q4_K_M**, read from Ollama /api/show and checked with ollama show. Ollama **0.40.2**; Python **3.12.3**; GPU: NVIDIA GeForce RTX 3050 Ti Laptop GPU, 4096 MiB. Linux/WSL2 environment and model template/system prompt are captured in results/environment.json. Full model digest: 357c53fb659c5076de1d65ccb0b397446227b71a42be9d1603d46168015c9e4b.
+Explicit options: temperature=0, seed=42, num_ctx=4096, num_predict=1024, repeat_penalty=1.2, repeat_last_n=128, top_k=40, top_p=0.9, min_p=0, presence_penalty=0, frequency_penalty=0. Temperature is replaced by 1.0 for the temperature experiment; stream=false in all requests. Requests use the same prompt, schema and options except the controlled variable. Prompt-only omits format entirely; schema mode sends the JSON_SCHEMA object. Stop-list and runtime-default details are in docs/GENERATION_PARAMETERS.md. Reference: [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs).
 
-All runs use seed=42, num_ctx=4096, num_predict=384, repeat_penalty=1.2, repeat_last_n=128 and stream=false. Primary temperature=0; supplementary temperature=1.0. top_k and top_p are **not explicitly set**; runtime/model defaults apply. HTTP connection/read timeouts are 5/60 seconds. Per-run metadata captures software, model and hardware before and after execution; per-response hashes identify prompt, schema and source text.
+The prompt defines categories, entity types and a JSON object template. It asks for all named surface forms without a five-name cap. The schema requires category plus person/organization/location string arrays inside entities, and disallows additional fields. Token budget is finite, so truncation remains possible and is counted as a failure when unusable.
 
-## 3. Methodology
-
-build_prompt() retains the Turkish task and adds a minimal explicit JSON object template (v2). This essential correction gives prompt-only mode the field names absent from v1; preserved five-record development outputs with v1 had no schema-valid response. Both new arms use identical v2 prompts and samples in the same order. Prompt-only omits the format key entirely; schema mode sends JSON_SCHEMA. The schema requires exactly category and entities, an allowed category and person/organization/location string arrays; it rejects extra fields. The prompt's five-name cap is not a schema constraint.
-
-parse_json_response() first calls json.loads(raw_output). A JSONDecodeError triggers Markdown/explanation removal, then a second parse. No facts, missing fields or closing braces are invented. A complete nested object recovered from truncated text must still pass validate_schema(). evaluate_sample() saves the untouched raw output and records HTTP, timeout or envelope errors without stopping later samples.
+Raw parsing applies json.loads directly. On JSONDecodeError, cleaning removes Markdown fences or surrounding text and retries. It never adds facts, fields or missing braces. Schema checking then verifies required keys, types and allowed categories. API errors are recorded and remaining samples continue. Raw outputs are preserved; summary metrics are recomputed from them.
 
 <!-- pagebreak -->
 
-## 4. Experimental results
+## 3. Evaluation results
 
-These tables are recomputed from the fresh saved responses, not from historical success flags. All four rates divide successful records by **all 100 requests per condition**, including API, parsing and schema failures. Post-cleaning success includes direct successes and recovered responses. Correct classification requires a schema-valid output whose category equals the TTC4900 label. This is end-to-end accuracy; structural failure counts as incorrect.
+All format and classification rates divide by every request, including API/parse/schema failures. Classification counts a correct category only when the full output is schema-valid. Entity scoring treats invalid outputs as empty predictions, so missing gold names count as false negatives. Pending entity F1 is not a zero score.
 
-| Metric | Prompt-only, T=0 | Schema, T=0 |
-|---|---:|---:|
-| Raw JSON parsing | 96/100 (96%) | 100/100 (100%) |
-| Parsing after cleaning | 99/100 (99%) | 100/100 (100%) |
-| Schema validity | 98/100 (98%) | 100/100 (100%) |
-| Classification accuracy | 48/100 (48%) | 50/100 (50%) |
-| Entity micro-F1 | 24.38% | 24.33% |
-
-
-Schema decoding changed end-to-end classification accuracy by +2 percentage points on these 100 texts. Both modes were correct on 48, only prompt-only on 0, only schema on 2, and both wrong on 50. Predictions agreed on 98/100. Among 98 outputs valid in both modes, 0 category decisions differed. Separate usable-output gains from changed decisions; neither establishes a general semantic advantage.
-
-### Controlled temperature experiment
-
-The same 100 texts are used at both temperatures in both modes (400 requests). Seed, prompt, model and other options remain fixed within each pair.
-
-| Mode, temperature | n | Raw JSON | Schema | Accuracy |
-|---|---:|---:|---:|---:|
-| Prompt, T=0 | 100 | 96% | 98% | 48% |
-| Schema, T=0 | 100 | 100% | 100% | 50% |
-| Prompt, T=1 | 100 | 75% | 99% | 54% |
-| Schema, T=1 | 100 | 100% | 100% | 52% |
+| Mode / T | n | Raw JSON | Clean JSON | Schema | Accuracy | Entity F1 |
+|---|---:|---:|---:|---:|---:|---:|
+| prompt, 0 | 100 | 98% | 100% | 99% | 53% | 25.27% |
+| schema, 0 | 100 | 100% | 100% | 100% | 53% | 24.05% |
+| prompt, 1 | 100 | 94% | 100% | 98% | 49% | 17.84% |
+| schema, 1 | 100 | 100% | 100% | 100% | 50% | 16.98% |
 
 
-At T=0 then T=1, prompt-only raw parsing was 96% then 75%, and accuracy was 48% then 54%. Schema accuracy was 50% then 52%. These observations do not establish a general temperature effect.
+At T=0 schema changed end-to-end category accuracy by +0 percentage points. Among 99 outputs valid in both modes, 1 category predictions differed. Only prompt was correct on 0 texts, only schema on 0. A structural recovery can improve usable-output accuracy without changing category decisions on mutually valid outputs. Here, better formatting added no net correct category decisions. The schema restricts allowed forms and labels; it does not identify the reference category.
 
-![Measured formatting and classification rates; pending F1 is not a zero score.](../results/figures/mode_temperature_comparison.png)
+For prompt only, T=0 to T=1 changed raw parsing 98% to 94% and category accuracy 53% to 49%. For schema constrained, T=0 to T=1 changed raw parsing 100% to 100% and category accuracy 53% to 50%. These single-seed findings do not establish a universal temperature effect. The live video demonstrates both temperatures on the same new texts.
+
+![Current results](../results/metrics.png)
 
 <!-- pagebreak -->
 
-## 5. Entity evaluation, discussion and limitations
+## 4. Manual annotation and entity matching
 
-TTC4900 supplies class labels, not verified entity labels. data/entity_gold.jsonl contains historical-model suggestions explicitly marked candidate. The terminal helper displays the original text, lets a human edit every list, and saves verified status only after explicit confirmation with reviewer, timestamp and source hash. Current verification: **100/100**. No entity score is released until all selected gold records are verified. Suggestions can bias review; the reviewer must also check omissions.
+The annotation screen starts with empty fields and displays only the article and the annotator's own saved entries. The human selects or types source-text names, assigns their types and explicitly saves each article. No model suggests, completes or verifies these labels. Completed records include annotator, timestamp and source-text hash. Recorded annotator(s): **Emrehan Metin**.
 
-Match names by NFC-normalized exact equality, mapping Turkish İ to i and I to ı before lowercasing, replacing underscores with spaces and collapsing whitespace. Retain punctuation and entity type. Group explicit aliases into one gold entry; aliases must not overlap between gold entities. Deduplicate identical predictions and allow at most one prediction per gold entity. Wrong types count as FP and FN. Invalid outputs provide empty prediction sets. Per-type and micro scores use P=TP/(TP+FP), R=TP/(TP+FN), F1=2PR/(P+R); zero denominators give zero. Micro counts are summed over all texts and types before division.
+Annotate all distinct named surface forms. Exclude titles, grammatical suffixes, products, events, nationalities and fictional characters. Use the longest explicit name at a mention; include a short form separately only when it occurs separately. A club or national team is an organization; a country used geographically is a location. Repeated identical forms count once. There is no entity-count cap and no alias-group syntax. Full policy: docs/ANNOTATION_GUIDELINES.md.
 
-Gold uses the first five distinct supported entities per type in order of first mention, keeping aliases together. This matches the output cap, but the prompt does not specify which five; alternative valid choices can lower exact-match scores. Full annotation rules cover titles, institutions, geographic names, suffixes and overlaps in docs/ANNOTATION_GUIDELINES.md.
+Matching is exact after NFC normalization, Turkish İ→i and I→ı replacement before lowercasing, underscores-to-spaces and whitespace collapsing. Entity type is preserved. Compare sets of (type, normalized surface form) within each article. A wrong type contributes FP and FN; no partial or fuzzy match is used. P=TP/(TP+FP), R=TP/(TP+FN), F1=2PR/(P+R), with zero denominators giving zero. Micro-F1 sums counts across all articles and types.
 
 | Mode / type | Precision | Recall | F1 |
 |---|---:|---:|---:|
-| Prompt / location | 33.33% | 2.65% | 4.9% |
-| Prompt / organization | 44.74% | 14.29% | 21.66% |
-| Prompt / person | 52.89% | 31.07% | 39.14% |
-| Prompt / micro | 48.58% | 16.27% | 24.38% |
-| Schema / location | 29.41% | 2.65% | 4.85% |
-| Schema / organization | 41.18% | 14.71% | 21.67% |
-| Schema / person | 50.78% | 31.55% | 38.92% |
-| Schema / micro | 45.65% | 16.59% | 24.33% |
+| Prompt / location | 25% | 2.53% | 4.59% |
+| Prompt / organization | 33.98% | 12.07% | 17.81% |
+| Prompt / person | 53.17% | 37.33% | 43.86% |
+| Prompt / micro | 44.94% | 17.58% | 25.27% |
+| Schema / location | 20.83% | 1.81% | 3.32% |
+| Schema / organization | 36.05% | 10.69% | 16.49% |
+| Schema / person | 50% | 36.3% | 42.06% |
+| Schema / micro | 44.1% | 16.53% | 24.05% |
 
 
-Valid JSON does not prove semantic correctness. The saved predictions include sports/economy and international-politics boundary confusions; reference labels and the prompt taxonomy need not agree perfectly. Schema constraints restrict possible outputs but do not establish entity truth. Entity accuracy effects remain unknown until review is complete. A fixed seed does not remove runtime nondeterminism; temperature findings describe one realization per condition, not a universal trend. Quantization, software, hardware and prompt changes can affect reproducibility. Model pretraining overlap with TTC4900 is unknown.
+Entity micro-F1 at T=0 is 25.27% for prompt-only and 24.05% for schema (-1.22 percentage points). Grammar constraints restrict structure and labels, but cannot guarantee correct names, types or complete extraction. This single-seed observation does not prove general superiority.
 
-Historical evidence is separate: the preserved 200-response v1 schema run achieved 200/200 raw and schema-valid outputs, 107/200 correct categories (53.5%), and no API errors. It uses a different prompt and selection, so it is not a controlled baseline for these tables. The first fresh prompt run resumed after an application restart at 35 records; provenance was checked and no saved output was replaced. Timings exclude that interruption. Earlier uncommitted partial runs remain archived, excluded from this comparison.
+Every annotation save rebuilds metrics, plot and this report from current gold. New or changed gold changes the evaluation input; no F1 value is hard-coded. Annotation fingerprint: 6da08efe5bdf1e96b05cb6010356600518020b5796bd8215e20be16d74c6231a.
 
-### Reproduction and submission status
+## 5. Limitations and reproduction
 
-Run python src/evaluate.py --compare to recalculate comparisons/plots, then python src/build_report.py to regenerate this report. New inference requires --run, a mode, a temperature and a new result filename; README gives exact commands. Offline tests exercise HTTP mocks only. src/demo.py sends genuine live requests on five new fictional Turkish examples; expected categories require student confirmation. Human annotation, final PDF review after F1, English recording and Unlisted YouTube upload remain student actions. The current draft does not claim assignment completion.
+One annotator, one seed and a small balanced subset limit generalization. No blinded annotation or inter-annotator agreement is claimed. Exact surface matching penalizes spelling differences; finite output/context budgets can omit names. JSON validity is not semantic correctness. Runtime/hardware changes can affect reproducibility even with a fixed seed; pretraining overlap is unknown.
 
-Dataset source recorded by the original project: [savasy/ttc4900](https://huggingface.co/datasets/savasy/ttc4900). Interface reference: [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs). Course page was unavailable to the agent; the user-supplied November requirements were followed. Evidence and backup details: docs/UPGRADE_EVIDENCE.md.
+Run python src/build_report.py to regenerate all derived outputs without model calls. Run python src/evaluate.py --run-all --directory results/new_run for new inference. Code/report, the English video (maximum 30 minutes) and Unlisted link must be submitted according to the course instructions. Manual labels, live tests and the student's own defense cannot be replaced by generated artifacts.
